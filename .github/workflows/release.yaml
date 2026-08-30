@@ -4,6 +4,12 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      publish-crates:
+        description: Publish missing Rust crates to crates.io
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -119,7 +125,9 @@ jobs:
           if-no-files-found: error
 
   crates:
-    if: startsWith(github.ref, 'refs/tags/')
+    if: >-
+      startsWith(github.ref, 'refs/tags/') ||
+      inputs.publish-crates
     needs: [metadata, binaries, python-wheels, python-sdist]
     runs-on: ubuntu-24.04
     environment: crates-io
@@ -139,7 +147,10 @@ jobs:
             local attempt
 
             for attempt in {1..6}; do
-              if cargo info "${package}@${PACKAGE_VERSION}" >/dev/null 2>&1; then
+              if curl --fail --silent \
+                --user-agent "fault-release/1.0 (https://github.com/fault-project/fault)" \
+                "https://crates.io/api/v1/crates/${package}/${PACKAGE_VERSION}" \
+                >/dev/null; then
                 echo "${package} ${PACKAGE_VERSION} is already published"
                 return 0
               fi
