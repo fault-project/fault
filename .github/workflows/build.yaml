@@ -33,7 +33,11 @@ jobs:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo build --workspace --locked
+      - run: >-
+          cargo build --locked
+          --package fault-model
+          --package fault-engine
+          --package fault-cli
 
   msrv:
     runs-on: ubuntu-24.04
@@ -65,7 +69,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.14"
-      - uses: astral-sh/setup-uv@v9
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
       - run: >-
           uv sync --project fault-python --python 3.14
           --reinstall-package faultlib
