@@ -1,0 +1,899 @@
+{
+  "$defs": {
+    "DelayDistribution": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "mean_ms": {
+              "format": "double",
+              "minimum": 0.0,
+              "type": "number"
+            },
+            "stddev_ms": {
+              "exclusiveMinimum": 0.0,
+              "format": "double",
+              "type": "number"
+            },
+            "type": {
+              "const": "normal",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "mean_ms",
+            "stddev_ms"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "scale_ms": {
+              "exclusiveMinimum": 0.0,
+              "format": "double",
+              "type": "number"
+            },
+            "shape": {
+              "exclusiveMinimum": 0.0,
+              "format": "double",
+              "type": "number"
+            },
+            "type": {
+              "const": "pareto",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "shape",
+            "scale_ms"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "normal_mean_ms": {
+              "format": "double",
+              "minimum": 0.0,
+              "type": "number"
+            },
+            "normal_stddev_ms": {
+              "exclusiveMinimum": 0.0,
+              "format": "double",
+              "type": "number"
+            },
+            "pareto_scale_ms": {
+              "exclusiveMinimum": 0.0,
+              "format": "double",
+              "type": "number"
+            },
+            "pareto_shape": {
+              "exclusiveMinimum": 0.0,
+              "format": "double",
+              "type": "number"
+            },
+            "type": {
+              "const": "pareto-normal",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "pareto_shape",
+            "pareto_scale_ms",
+            "normal_mean_ms",
+            "normal_stddev_ms"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "max_ms": {
+              "format": "double",
+              "minimum": 0.0,
+              "type": "number"
+            },
+            "min_ms": {
+              "format": "double",
+              "minimum": 0.0,
+              "type": "number"
+            },
+            "type": {
+              "const": "uniform",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "min_ms",
+            "max_ms"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "DelayRecord": {
+      "properties": {
+        "applications": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "total_delay_ms": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "applications",
+        "total_delay_ms"
+      ],
+      "type": "object"
+    },
+    "DnsCase": {
+      "enum": [
+        "delay",
+        "timeout",
+        "truncated",
+        "refused",
+        "serv-fail",
+        "nx-domain",
+        "empty-answer",
+        "random-a"
+      ],
+      "type": "string"
+    },
+    "FaultRecord": {
+      "properties": {
+        "bandwidth_bytes_limited": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "blackhole_activations": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "connection_resets": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "dns_interventions": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "jitter": {
+          "$ref": "#/$defs/DelayRecord"
+        },
+        "latency": {
+          "$ref": "#/$defs/DelayRecord"
+        }
+      },
+      "required": [
+        "latency",
+        "jitter",
+        "bandwidth_bytes_limited",
+        "blackhole_activations",
+        "connection_resets",
+        "dns_interventions"
+      ],
+      "type": "object"
+    },
+    "FaultSpec": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Adds one sampled delay to the selected direction. TCP applies it to the\nfirst non-empty traffic after activation; UDP applies it once to each\nselected datagram in an exchange.",
+          "properties": {
+            "distribution": {
+              "$ref": "#/$defs/DelayDistribution"
+            },
+            "flow": {
+              "$ref": "#/$defs/TrafficFlow"
+            },
+            "type": {
+              "const": "latency",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "flow",
+            "distribution"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Adds a probabilistic sampled delay. TCP evaluates it per data operation;\nUDP evaluates it once for each selected datagram in an exchange.",
+          "properties": {
+            "flow": {
+              "$ref": "#/$defs/TrafficFlow"
+            },
+            "max_delay_ms": {
+              "format": "double",
+              "minimum": 0.0,
+              "type": "number"
+            },
+            "min_delay_ms": {
+              "format": "double",
+              "minimum": 0.0,
+              "type": "number"
+            },
+            "probability": {
+              "format": "double",
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            "type": {
+              "const": "jitter",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "flow",
+            "min_delay_ms",
+            "max_delay_ms",
+            "probability"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Limits transferred bytes per second independently for each connection\nstream in the selected flow.",
+          "properties": {
+            "bytes_per_second": {
+              "format": "uint64",
+              "minimum": 1,
+              "type": "integer"
+            },
+            "flow": {
+              "$ref": "#/$defs/TrafficFlow"
+            },
+            "type": {
+              "const": "bandwidth",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "flow",
+            "bytes_per_second"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Leaves TCP operations pending until cancellation, or drops UDP\ndatagrams in the selected direction.",
+          "properties": {
+            "flow": {
+              "$ref": "#/$defs/TrafficFlow"
+            },
+            "type": {
+              "const": "blackhole",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "flow"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Resets a selected connection when traffic first uses the chosen flow.",
+          "properties": {
+            "flow": {
+              "$ref": "#/$defs/TrafficFlow"
+            },
+            "probability": {
+              "format": "double",
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            "type": {
+              "const": "connection-reset",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "flow",
+            "probability"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Alters DNS queries carried by a UDP proxy.",
+          "properties": {
+            "case": {
+              "$ref": "#/$defs/DnsCase"
+            },
+            "delay_ms": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "dns",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "case"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "FaultStatus": {
+      "properties": {
+        "average_jitter_ms": {
+          "format": "double",
+          "type": "number"
+        },
+        "average_latency_ms": {
+          "format": "double",
+          "type": "number"
+        },
+        "jitter_applications": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "latency_applications": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "latency_applications",
+        "average_latency_ms",
+        "jitter_applications",
+        "average_jitter_ms"
+      ],
+      "type": "object"
+    },
+    "Proxy": {
+      "additionalProperties": false,
+      "properties": {
+        "listen": {
+          "description": "Local socket address clients connect or send datagrams to.",
+          "type": "string"
+        },
+        "name": {
+          "description": "Stable name used by phases to select this proxy.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "protocol": {
+          "$ref": "#/$defs/TransportProtocol",
+          "description": "Transport accepted and forwarded by this proxy."
+        },
+        "upstream": {
+          "description": "Remote socket address to which traffic is forwarded.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "protocol",
+        "listen",
+        "upstream"
+      ],
+      "type": "object"
+    },
+    "ProxyFaults": {
+      "additionalProperties": false,
+      "description": "The complete fault chain active on one named proxy during a phase.",
+      "properties": {
+        "faults": {
+          "description": "Ordered chain of faults applied to traffic on this proxy.",
+          "items": {
+            "$ref": "#/$defs/FaultSpec"
+          },
+          "type": "array"
+        },
+        "proxy": {
+          "description": "Name of a proxy declared by the containing run.",
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "proxy",
+        "faults"
+      ],
+      "type": "object"
+    },
+    "TcpStreamOutcome": {
+      "enum": [
+        "active",
+        "completed",
+        "upstream-connect-failed",
+        "transfer-failed",
+        "cancelled",
+        "fault-reset"
+      ],
+      "type": "string"
+    },
+    "TcpStreamRecord": {
+      "properties": {
+        "bytes_to_client": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "bytes_to_upstream": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "closed_at": {
+          "format": "date-time",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "failure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TransportFailure"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "faults": {
+          "$ref": "#/$defs/FaultRecord"
+        },
+        "opened_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "outcome": {
+          "$ref": "#/$defs/TcpStreamOutcome"
+        },
+        "peer": {
+          "type": "string"
+        },
+        "proxy": {
+          "type": "string"
+        },
+        "stream_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "upstream": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "stream_id",
+        "proxy",
+        "peer",
+        "upstream",
+        "opened_at",
+        "bytes_to_upstream",
+        "bytes_to_client",
+        "faults",
+        "outcome"
+      ],
+      "type": "object"
+    },
+    "TcpStreamStatus": {
+      "properties": {
+        "active": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "active_impacted": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "average_bytes_to_client": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "average_bytes_to_upstream": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "completed": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "failed": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "impacted": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "opened": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "active",
+        "opened",
+        "active_impacted",
+        "impacted",
+        "completed",
+        "failed",
+        "average_bytes_to_upstream",
+        "average_bytes_to_client"
+      ],
+      "type": "object"
+    },
+    "TrafficFlow": {
+      "oneOf": [
+        {
+          "const": "to-upstream",
+          "description": "Traffic sent by the client toward the upstream service.",
+          "type": "string"
+        },
+        {
+          "const": "to-client",
+          "description": "Traffic returned by the upstream service toward the client.",
+          "type": "string"
+        },
+        {
+          "const": "both",
+          "description": "Traffic in both directions.",
+          "type": "string"
+        }
+      ]
+    },
+    "TransportFailure": {
+      "properties": {
+        "category": {
+          "$ref": "#/$defs/TransportFailureCategory"
+        },
+        "message": {
+          "type": "string"
+        },
+        "stage": {
+          "$ref": "#/$defs/TransportFailureStage"
+        }
+      },
+      "required": [
+        "stage",
+        "category",
+        "message"
+      ],
+      "type": "object"
+    },
+    "TransportFailureCategory": {
+      "enum": [
+        "dns-failed",
+        "connection-refused",
+        "timed-out",
+        "network-unreachable",
+        "connection-reset",
+        "broken-pipe",
+        "other"
+      ],
+      "type": "string"
+    },
+    "TransportFailureStage": {
+      "enum": [
+        "connect",
+        "transfer",
+        "exchange"
+      ],
+      "type": "string"
+    },
+    "TransportProtocol": {
+      "oneOf": [
+        {
+          "const": "tcp",
+          "description": "A connection-oriented byte stream.",
+          "type": "string"
+        },
+        {
+          "const": "udp",
+          "description": "Connectionless datagrams, including DNS traffic.",
+          "type": "string"
+        }
+      ]
+    },
+    "TransportStatus": {
+      "properties": {
+        "dropped_records": {
+          "description": "Completed records omitted from the best-effort event stream.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "effects": {
+          "$ref": "#/$defs/FaultStatus"
+        },
+        "last_failure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TransportFailure"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tcp": {
+          "$ref": "#/$defs/TcpStreamStatus"
+        },
+        "udp": {
+          "$ref": "#/$defs/UdpExchangeStatus"
+        }
+      },
+      "required": [
+        "tcp",
+        "udp",
+        "effects",
+        "dropped_records"
+      ],
+      "type": "object"
+    },
+    "UdpExchangeOutcome": {
+      "enum": [
+        "active",
+        "completed",
+        "transfer-failed",
+        "cancelled",
+        "fault-dropped"
+      ],
+      "type": "string"
+    },
+    "UdpExchangeRecord": {
+      "properties": {
+        "completed_at": {
+          "format": "date-time",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "exchange_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "failure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TransportFailure"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "faults": {
+          "$ref": "#/$defs/FaultRecord"
+        },
+        "outcome": {
+          "$ref": "#/$defs/UdpExchangeOutcome"
+        },
+        "peer": {
+          "type": "string"
+        },
+        "proxy": {
+          "type": "string"
+        },
+        "request_bytes": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "response_bytes": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "started_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "upstream": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "exchange_id",
+        "proxy",
+        "peer",
+        "upstream",
+        "started_at",
+        "request_bytes",
+        "response_bytes",
+        "faults",
+        "outcome"
+      ],
+      "type": "object"
+    },
+    "UdpExchangeStatus": {
+      "properties": {
+        "active": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "active_impacted": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "average_request_bytes": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "average_response_bytes": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "completed": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "failed": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "impacted": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "started": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "active",
+        "started",
+        "active_impacted",
+        "impacted",
+        "completed",
+        "failed",
+        "average_request_bytes",
+        "average_response_bytes"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "properties": {
+        "faults": {
+          "items": {
+            "$ref": "#/$defs/ProxyFaults"
+          },
+          "type": "array"
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "proxies": {
+          "items": {
+            "$ref": "#/$defs/Proxy"
+          },
+          "type": "array"
+        },
+        "schema_version": {
+          "const": 1,
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "started_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "type": {
+          "const": "run-started",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "schema_version",
+        "started_at",
+        "proxies",
+        "faults"
+      ],
+      "type": "object"
+    },
+    {
+      "properties": {
+        "stream": {
+          "$ref": "#/$defs/TcpStreamRecord"
+        },
+        "type": {
+          "const": "tcp-stream-completed",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "stream"
+      ],
+      "type": "object"
+    },
+    {
+      "properties": {
+        "exchange": {
+          "$ref": "#/$defs/UdpExchangeRecord"
+        },
+        "type": {
+          "const": "udp-exchange-completed",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "exchange"
+      ],
+      "type": "object"
+    },
+    {
+      "properties": {
+        "completed_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/TransportStatus"
+        },
+        "type": {
+          "const": "run-completed",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "completed_at",
+        "status"
+      ],
+      "type": "object"
+    }
+  ],
+  "title": "JournalEvent"
+}

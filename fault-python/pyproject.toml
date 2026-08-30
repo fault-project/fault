@@ -1,0 +1,39 @@
+[build-system]
+requires = ["maturin>=1.9,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "faultlib"
+dynamic = ["version"]
+description = "Programmable network fault injection"
+readme = "README.md"
+requires-python = ">=3.14"
+license = "Apache-2.0"
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Rust",
+  "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://fault-project.com"
+Documentation = "https://fault-project.com"
+Repository = "https://github.com/fault-project/fault"
+Issues = "https://github.com/fault-project/fault/issues"
+
+[dependency-groups]
+dev = ["ruff"]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 80
+src = ["python"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "ASYNC"]
+
+[tool.maturin]
+python-source = "python"
+module-name = "faultlib._fault"
+features = ["pyo3/extension-module"]

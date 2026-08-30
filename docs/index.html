@@ -1,0 +1,1428 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="fault — focused TCP, UDP, and DNS fault injection for the command line, Rust, and Python.">
+  <title>fault — network fault injection</title>
+  <script>
+    (() => {
+      let theme;
+      try {
+        theme = localStorage.getItem("fault-theme");
+      } catch {}
+      theme ??= matchMedia("(prefers-color-scheme: light)").matches
+        ? "light"
+        : "dark";
+      document.documentElement.dataset.theme = theme;
+    })();
+  </script>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0d1110;
+      --panel: #131a17;
+      --panel-2: #18211d;
+      --ink: #e7eee9;
+      --muted: #91a098;
+      --line: #27342e;
+      --accent: #ffda4f;
+      --accent-ink: #ffda4f;
+      --amber: #f2ad62;
+      --blue: #83c8f5;
+      --red: #f58b86;
+      --lede: #c8d4cd;
+      --glow: rgba(150, 112, 18, .16);
+      --code-bg: #090d0b;
+      --code-ink: #dce9e1;
+      --comment: #718078;
+      --purple: #c9a7ff;
+      --green: #9bddb7;
+      --operator: #a8b5ae;
+      --disabled: #66736c;
+      --accent-hover: #ffed9a;
+      --accent-shadow: rgba(255, 218, 79, .45);
+      --mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    :root[data-theme="light"] {
+      color-scheme: light;
+      --bg: #ffffff;
+      --panel: #f7f7f5;
+      --panel-2: #eeeeeb;
+      --ink: #20251f;
+      --muted: #657068;
+      --line: #dcdedb;
+      --accent: #ffef0c;
+      --accent-ink: #655e00;
+      --amber: #92531e;
+      --blue: #17658f;
+      --red: #a23b35;
+      --lede: #3e4841;
+      --glow: transparent;
+      --code-bg: #f8f8f6;
+      --code-ink: #28322c;
+      --comment: #6d786f;
+      --purple: #7045a1;
+      --green: #28724a;
+      --operator: #59655e;
+      --disabled: #7a817c;
+      --accent-hover: #5f4500;
+      --accent-shadow: rgba(139, 101, 0, .24);
+    }
+    * { box-sizing: border-box; }
+    ::selection { background: var(--accent); color: #20251f; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 75% 0%, var(--glow), transparent 32rem),
+        var(--bg);
+      color: var(--ink);
+      font: 16px/1.65 var(--sans);
+    }
+    a { color: var(--accent-ink); text-underline-offset: .2em; }
+    a:hover { color: var(--accent-hover); }
+    code, pre, .eyebrow, nav, .label, table { font-family: var(--mono); }
+    .shell {
+      display: grid;
+      grid-template-columns: 14rem minmax(0, 52rem);
+      gap: clamp(2rem, 6vw, 6rem);
+      max-width: 78rem;
+      margin: 0 auto;
+      padding: 0 1.5rem 6rem;
+    }
+    nav {
+      position: sticky;
+      top: 2rem;
+      align-self: start;
+      padding-top: 2rem;
+      font-size: .78rem;
+      letter-spacing: .03em;
+    }
+    nav strong { display: block; color: var(--ink); margin-bottom: .8rem; }
+    .theme-toggle {
+      display: block;
+      margin: 0 0 1rem;
+      padding: .25rem .55rem;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--panel);
+      color: var(--muted);
+      font: inherit;
+      cursor: pointer;
+    }
+    .theme-toggle:hover { color: var(--accent-ink); border-color: var(--accent); }
+    .theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    nav a {
+      position: relative;
+      isolation: isolate;
+      display: block;
+      width: fit-content;
+      color: var(--muted);
+      padding: .22rem 0;
+      text-decoration: none;
+      transition: color .2s ease, transform .2s ease, text-shadow .2s ease;
+    }
+    nav a::after {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      inset: .17rem -.42rem .12rem -.32rem;
+      background: var(--accent);
+      clip-path: polygon(
+        0 14%, 13% 6%, 29% 11%, 47% 3%, 66% 9%, 84% 4%, 100% 13%,
+        98% 87%, 79% 94%, 61% 89%, 43% 97%, 23% 91%, 3% 96%
+      );
+      opacity: .96;
+      transform: scaleX(0) rotate(-.35deg);
+      transform-origin: left center;
+      transition: transform .38s cubic-bezier(.2, .75, .2, 1);
+    }
+    nav a::before {
+      content: ">";
+      display: inline-block;
+      width: 0;
+      color: var(--accent);
+      opacity: 0;
+      transform: translateX(-.5rem);
+      transition: width .2s ease, opacity .2s ease, transform .2s ease;
+    }
+    nav a:hover { color: var(--accent-ink); }
+    nav a.active {
+      color: #20251f;
+      transform: translateX(.35rem);
+      text-shadow: none;
+    }
+    nav a.active::after { transform: scaleX(1) rotate(-.35deg); }
+    nav a.active::before {
+      width: 1.15rem;
+      color: #20251f;
+      opacity: 1;
+      transform: translateX(0);
+    }
+    main { min-width: 0; }
+    header { padding: clamp(5rem, 12vw, 9rem) 0 5rem; }
+    .eyebrow, .label {
+      width: fit-content;
+      color: var(--accent-ink);
+      font-size: .75rem;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+    }
+    :root[data-theme="light"] .eyebrow,
+    :root[data-theme="light"] .label {
+      box-shadow: inset 0 -.42em 0 var(--accent);
+    }
+    h1 {
+      margin: .35rem 0 1rem;
+      font: 700 clamp(4.6rem, 15vw, 9rem)/.84 var(--mono);
+      letter-spacing: -.09em;
+    }
+    .lede {
+      max-width: 43rem;
+      margin: 0;
+      color: var(--lede);
+      font-size: clamp(1.25rem, 3vw, 1.75rem);
+      line-height: 1.35;
+    }
+    .promise {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      margin-top: 3rem;
+      border: 1px solid var(--line);
+      background: var(--line);
+    }
+    .promise div { background: var(--panel); padding: 1rem; }
+    .promise b { display: block; color: var(--ink); font: 600 .85rem var(--mono); }
+    .promise span { color: var(--muted); font-size: .83rem; }
+    section { padding: 4rem 0; border-top: 1px solid var(--line); }
+    h2 {
+      width: fit-content;
+      margin: 0 0 1.5rem;
+      padding: .04em .2em .08em;
+      background: var(--accent);
+      color: #20251f;
+      font-size: clamp(1.75rem, 4vw, 2.6rem);
+      letter-spacing: -.04em;
+      box-decoration-break: clone;
+      -webkit-box-decoration-break: clone;
+    }
+    h3 { margin: 2.5rem 0 .65rem; font-size: 1.08rem; }
+    p { max-width: 45rem; }
+    .aside { color: var(--muted); }
+    .callout {
+      margin: 2rem 0;
+      padding: 1.25rem 1.4rem;
+      border-left: 3px solid var(--accent);
+      background: var(--panel);
+    }
+    .callout p { margin: 0; }
+    .deployment-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1px;
+      margin: 2rem 0;
+      border: 1px solid var(--line);
+      background: var(--line);
+    }
+    .deployment-grid article { padding: 1.3rem; background: var(--panel); }
+    .deployment-grid h3 { margin: 0 0 .55rem; }
+    .deployment-grid p { margin: 0; color: var(--muted); font-size: .9rem; }
+    pre {
+      position: relative;
+      overflow-x: auto;
+      margin: 1.25rem 0 2rem;
+      padding: 1.35rem 1.5rem;
+      border: 1px solid var(--line);
+      border-radius: .45rem;
+      background: var(--code-bg);
+      color: var(--code-ink);
+      font-size: .86rem;
+      line-height: 1.6;
+      tab-size: 2;
+    }
+    pre::before {
+      content: attr(data-language);
+      display: block;
+      margin-bottom: .65rem;
+      color: var(--muted);
+      font-size: .65rem;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    :not(pre) > code {
+      padding: .12em .35em;
+      border: 1px solid var(--line);
+      border-radius: .25rem;
+      background: var(--panel);
+      color: var(--amber);
+      font-size: .9em;
+    }
+    .comment { color: var(--comment); }
+    .key { color: var(--blue); }
+    .value { color: var(--amber); }
+    .command { color: var(--accent-ink); }
+    .shj-syn-cmnt { color: var(--comment); font-style: italic; }
+    .shj-syn-str { color: var(--amber); }
+    .shj-syn-var, .shj-syn-func { color: var(--blue); }
+    .shj-syn-num { color: var(--purple); }
+    .shj-syn-bool { color: var(--red); }
+    .shj-syn-kwd { color: var(--accent-ink); }
+    .shj-syn-class, .shj-syn-type { color: var(--green); }
+    .shj-syn-oper { color: var(--operator); }
+    .diagram {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr auto 1fr;
+      align-items: center;
+      gap: .75rem;
+      margin: 2rem 0;
+      text-align: center;
+      font: .8rem var(--mono);
+    }
+    .diagram span:not(.arrow) { padding: 1rem .6rem; border: 1px solid var(--line); background: var(--panel); }
+    .arrow { color: var(--accent-ink); }
+    table { width: 100%; border-collapse: collapse; margin: 1.5rem 0 2rem; font-size: .82rem; }
+    th, td { padding: .8rem .7rem; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { color: var(--muted); font-weight: 500; }
+    td:first-child { color: var(--ink); }
+    .yes { color: var(--accent-ink); }
+    .no { color: var(--disabled); }
+    .warn { color: var(--amber); }
+    .recipe-list { display: grid; gap: .7rem; margin: 2rem 0; }
+    .recipe {
+      scroll-margin-top: 2rem;
+      border: 1px solid var(--line);
+      border-radius: .45rem;
+      background: var(--panel);
+    }
+    .recipe summary {
+      padding: 1rem 1.2rem;
+      cursor: pointer;
+      color: var(--ink);
+      font: 600 .86rem var(--mono);
+      list-style: none;
+    }
+    .recipe summary::-webkit-details-marker { display: none; }
+    .recipe summary::before {
+      content: "+";
+      display: inline-block;
+      width: 1.5rem;
+      color: var(--accent-ink);
+    }
+    .recipe[open] summary { border-bottom: 1px solid var(--line); }
+    .recipe[open] summary::before { content: "−"; }
+    .recipe p { margin: 1rem 1.2rem 0; color: var(--muted); }
+    .recipe pre { margin: 1rem 1.2rem 1.2rem; }
+    footer { padding: 3rem 0 5rem; border-top: 1px solid var(--line); color: var(--muted); font: .8rem var(--mono); }
+    @media (max-width: 780px) {
+      .shell { display: block; }
+      nav { position: static; display: flex; flex-wrap: wrap; gap: .2rem 1rem; padding-top: 1.5rem; }
+      nav strong { width: 100%; }
+      nav a { display: inline-block; }
+      header { padding-top: 4rem; }
+      .promise { grid-template-columns: 1fr; }
+      .deployment-grid { grid-template-columns: 1fr; }
+      .diagram { grid-template-columns: 1fr; }
+      .arrow { transform: rotate(90deg); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      nav a, nav a::before, nav a::after { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <nav aria-label="Page contents">
+      <strong>FAULT(1)</strong>
+      <button class="theme-toggle" id="theme-toggle" type="button">theme: dark</button>
+      <a href="#install">Install</a>
+      <a href="#start">Run your first fault</a>
+      <a href="#model">Route traffic</a>
+      <a href="#faults">Choose a failure</a>
+      <a href="#recipes">Model an incident</a>
+      <a href="#scheduling">Change faults over time</a>
+      <a href="#deployment">Deploy the proxy</a>
+      <a href="#implementations">Use it from code</a>
+      <a href="#evidence">Inspect what happened</a>
+      <a href="#examples">Work with real systems</a>
+      <a href="#agents">Teach an agent</a>
+      <a href="reference.html">Reference</a>
+    </nav>
+
+    <main>
+      <header>
+        <div class="eyebrow">A network fault injector / TCP · UDP · DNS</div>
+        <h1>fault</h1>
+        <p class="lede">fault is a proxy that deliberately makes the network
+          worse. Put it between a client and its dependency, send real traffic
+          through it, and see how the system behaves.</p>
+        <div class="promise" aria-label="Project principles">
+          <div><b>One executable</b><span>Download it and run it.</span></div>
+          <div><b>One document</b><span>Routes, faults, and timing.</span></div>
+          <div><b>Real traffic</b><span>TCP streams and UDP exchanges.</span></div>
+        </div>
+      </header>
+
+      <section id="install">
+        <div class="label">Installation</div>
+        <h2>Download one file and run it</h2>
+        <p>fault is released as a standalone executable. There is no archive
+          to unpack and no service to install. Download the file into your
+          user-local bin directory and make it executable.</p>
+
+        <h3>Linux · x86-64</h3>
+        <pre data-language="shell"><code><span class="command">curl -fL https://github.com/fault-project/fault/releases/latest/download/fault-linux-x86_64 -o "$HOME/.local/bin/fault"</span>
+<span class="command">chmod +x "$HOME/.local/bin/fault"</span>
+<span class="command">"$HOME/.local/bin/fault" --version</span></code></pre>
+
+        <h3>macOS · Apple Silicon</h3>
+        <pre data-language="shell"><code><span class="command">curl -fL https://github.com/fault-project/fault/releases/latest/download/fault-macos-aarch64 -o "$HOME/.local/bin/fault"</span>
+<span class="command">chmod +x "$HOME/.local/bin/fault"</span>
+<span class="command">xattr -d com.apple.quarantine "$HOME/.local/bin/fault" 2&gt;/dev/null || true</span>
+<span class="command">"$HOME/.local/bin/fault" --version</span></code></pre>
+        <p class="aside">macOS attaches the <code>com.apple.quarantine</code>
+          attribute to downloaded executables. Removing it allows this
+          unsigned CLI to run without Gatekeeper treating it as a newly
+          quarantined download.</p>
+
+        <h3>Windows · x86-64</h3>
+        <pre data-language="powershell"><code><span class="command">Invoke-WebRequest `
+  https://github.com/fault-project/fault/releases/latest/download/fault-windows-x86_64.exe `
+  -OutFile "$HOME\.local\bin\fault.exe"</span>
+<span class="command">&amp; "$HOME\.local\bin\fault.exe" --version</span></code></pre>
+
+        <details class="recipe">
+          <summary>Optional: verify the downloaded executable</summary>
+          <p>Every release includes <code>SHA256SUMS</code>. Download it beside
+            the executable and compare the published SHA-256 digest before
+            running the file.</p>
+          <pre data-language="linux"><code><span class="command">curl -fLO https://github.com/fault-project/fault/releases/latest/download/SHA256SUMS</span>
+<span class="command">expected=$(grep '  fault-linux-x86_64$' SHA256SUMS | cut -d ' ' -f1)</span>
+<span class="command">echo "$expected  $HOME/.local/bin/fault" | sha256sum --check -</span></code></pre>
+          <pre data-language="macos"><code><span class="command">curl -fLO https://github.com/fault-project/fault/releases/latest/download/SHA256SUMS</span>
+<span class="command">expected=$(grep '  fault-macos-aarch64$' SHA256SUMS | cut -d ' ' -f1)</span>
+<span class="command">echo "$expected  $HOME/.local/bin/fault" | shasum -a 256 --check -</span></code></pre>
+          <pre data-language="powershell"><code><span class="command">Invoke-WebRequest https://github.com/fault-project/fault/releases/latest/download/SHA256SUMS -OutFile SHA256SUMS</span>
+<span class="command">$expected = (Select-String '  fault-windows-x86_64.exe$' SHA256SUMS).Line.Split()[0]</span>
+<span class="command">if ((Get-FileHash "$HOME\.local\bin\fault.exe" -Algorithm SHA256).Hash -ne $expected) { throw 'fault checksum mismatch' }</span></code></pre>
+        </details>
+
+        <p class="aside">Add <code>$HOME/.local/bin</code> on Linux or macOS,
+          or <code>%USERPROFILE%\.local\bin</code> on Windows, to
+          <code>PATH</code> to invoke the installed executable as
+          <code>fault</code>.</p>
+      </section>
+
+      <section id="start">
+        <div class="label">First run</div>
+        <h2>Run your first fault</h2>
+        <p>Let’s start with a complete example. We will listen locally, forward
+          the connection to Google, and add 250 milliseconds to response
+          traffic. fault forwards the TLS bytes without trying to understand
+          HTTP.</p>
+        <div class="callout"><p><strong>There is one document and one command.</strong> Every run contains routes and phases. <code>fault run FILE</code> advances through timed phases; a final phase without <code>duration</code> remains active until interrupted.</p></div>
+
+        <pre data-language="google-proxy.yaml"><code>schema_version: 1
+name: slow Google connection
+proxies:
+  - name: google
+    protocol: tcp
+    listen: 127.0.0.1:18080
+    upstream: www.google.com:443
+phases:
+  - name: slow responses
+    proxies:
+      - proxy: google
+        faults:
+          - type: latency
+            flow: to-client
+            distribution:
+              type: uniform
+              min_ms: 250.0
+              max_ms: 250.0</code></pre>
+
+        <pre data-language="server"><code><span class="command">fault run google-proxy.yaml</span></code></pre>
+        <pre data-language="client"><code><span class="command">curl --connect-to www.google.com:443:127.0.0.1:18080 https://www.google.com/</span></code></pre>
+        <p class="aside"><code>--connect-to</code> sends the TCP connection
+          through fault while preserving <code>www.google.com</code> as the TLS
+          server name and HTTP host.</p>
+        <p>At this point curl still speaks TLS directly with Google. The only
+          difference is that every response byte crosses fault’s listener and
+          therefore experiences the configured delay. The dashboard shows the
+          active fault and the number of streams it affected.</p>
+      </section>
+
+      <section id="model">
+        <div class="label">Traffic routing</div>
+        <h2>Understand where the bytes go</h2>
+        <div class="diagram" aria-label="Client to fault proxy to upstream flow">
+          <span>your client</span><span class="arrow">→</span><span>fault proxy<br><small>ordered fault chain</small></span><span class="arrow">→</span><span>real upstream</span>
+        </div>
+        <p>There is no hidden interception. Your client connects to fault’s
+          listen address and fault opens a second connection to the real
+          upstream. A named proxy joins those addresses to a transport and a
+          current chain of faults.</p>
+        <p>Directions are always named from the client’s point of view:</p>
+        <ul>
+          <li><code>to-upstream</code> — requests or bytes sent by the client.</li>
+          <li><code>to-client</code> — responses or bytes returned by the upstream.</li>
+          <li><code>both</code> — both directions.</li>
+        </ul>
+        <div class="callout"><p><strong>TCP produces streams. UDP produces exchanges.</strong> A TCP stream may live across several scheduled phases. A UDP exchange is one request datagram and its response. The distinction is part of every status and evidence record.</p></div>
+        <p>Faults are chainable and evaluated in declaration order. TCP fault state follows the stream. UDP latency, jitter, and blackhole operate at the selected datagram boundary. DNS faults are the only feature that inspects payloads.</p>
+      </section>
+
+      <section id="faults">
+        <div class="label">Failure modes</div>
+        <h2>Choose what should go wrong</h2>
+        <p>Start with the failure you want the application to experience, not
+          with a protocol feature. The table below shows the small vocabulary
+          fault uses and the engineering questions each fault is useful for.</p>
+        <table>
+          <thead><tr><th>Fault</th><th>TCP</th><th>UDP</th><th>Meaning</th><th>Good for</th></tr></thead>
+          <tbody>
+            <tr><td>latency</td><td class="yes">yes</td><td class="yes">yes</td><td>Sampled delay in the selected flow.</td><td>Slow dependencies, distant regions, timeout budgets, and queue growth.</td></tr>
+            <tr><td>jitter</td><td class="yes">yes</td><td class="yes">yes</td><td>Probabilistic delay between a minimum and maximum.</td><td>Unstable links, tail latency, intermittent slowness, and timing assumptions.</td></tr>
+            <tr><td>blackhole</td><td class="yes">yes</td><td class="yes">yes</td><td>TCP traffic remains pending; UDP datagrams are dropped.</td><td>Network partitions, firewall drops, hanging calls, and asymmetric failure.</td></tr>
+            <tr><td>bandwidth</td><td class="yes">yes</td><td class="no">—</td><td>Bytes per second, independently per TCP stream.</td><td>Congested links, slow consumers, backpressure, and constrained replication.</td></tr>
+            <tr><td>connection-reset</td><td class="yes">yes</td><td class="no">—</td><td>Reset a TCP connection when selected traffic is used.</td><td>Pod restarts, load-balancer rotation, stale pools, and retry behavior.</td></tr>
+            <tr><td>dns</td><td class="no">—</td><td class="yes">DNS</td><td>Delay, timeout, truncate, refuse, SERVFAIL, NXDOMAIN, empty answer, or random A.</td><td>Resolver outages, missing records, bad answers, and DNS fallback behavior.</td></tr>
+          </tbody>
+        </table>
+        <p>Bandwidth and connection reset are rejected for UDP. There is no honest UDP connection to reset, and a bandwidth scope would be ambiguous across independent exchanges.</p>
+
+        <h3>Failures seen in real systems</h3>
+        <p>Production incidents are usually combinations rather than isolated primitives. These patterns provide realistic starting points; the application’s metrics and behavior determine whether it handled them well.</p>
+        <table>
+          <thead><tr><th>Failure in the wild</th><th>Model with fault</th><th>What it exercises</th></tr></thead>
+          <tbody>
+            <tr><td>DNS resolver is slow or unavailable</td><td><code>dns: timeout</code>, <code>serv-fail</code>, or delayed responses · <a href="#recipe-dns-outage">config ↓</a></td><td>Resolver caching, fallback, startup behavior, and whether DNS time is included in request deadlines.</td></tr>
+            <tr><td>A record is missing or points somewhere wrong</td><td><code>dns: nx-domain</code>, <code>empty-answer</code>, or <code>random-a</code> · <a href="#recipe-dns-answer">config ↓</a></td><td>Negative caching, error reporting, endpoint validation, and recovery after records change.</td></tr>
+            <tr><td>Downstream backlog keeps growing</td><td>Client-bound <code>latency</code> chained with <code>bandwidth</code> · <a href="#recipe-backlog">config ↓</a></td><td>Queue limits, deadline propagation, admission control, and memory growth under slow completion.</td></tr>
+            <tr><td>Backpressure stops protecting the service</td><td>Very low client-bound <code>bandwidth</code> while normal request traffic continues · <a href="#recipe-backpressure">config ↓</a></td><td>Bounded buffers, slow-consumer handling, producer throttling, and overload shedding.</td></tr>
+            <tr><td>Cross-region link becomes congested</td><td><code>latency</code> + probabilistic <code>jitter</code> + <code>bandwidth</code> · <a href="#recipe-region">config ↓</a></td><td>Tail-latency budgets, batching, concurrency limits, and adaptive timeouts.</td></tr>
+            <tr><td>One direction of the network is partitioned</td><td><code>blackhole</code> with <code>to-upstream</code> or <code>to-client</code> · <a href="#recipe-partition">config ↓</a></td><td>Half-open connection handling, cancellation, heartbeat assumptions, and leaked work.</td></tr>
+            <tr><td>A pod or load balancer drops pooled connections</td><td>Activate probabilistic <code>connection-reset</code> on existing TCP streams · <a href="#recipe-reset">config ↓</a></td><td>Pool eviction, reconnect behavior, idempotency, and retry amplification.</td></tr>
+            <tr><td>Retries turn a transient incident into an outage</td><td><code>jitter</code> + probabilistic <code>connection-reset</code> across a timed phase · <a href="#recipe-retries">config ↓</a></td><td>Retry budgets, exponential backoff, jittered retries, and load multiplication.</td></tr>
+            <tr><td>Several dependencies degrade together</td><td>A phase targeting several named proxies with different chains · <a href="#recipe-compound">config ↓</a></td><td>Fallback interactions, shared resource exhaustion, graceful degradation, and failure prioritization.</td></tr>
+            <tr><td>The network recovers after sustained failure</td><td>Faulted phase followed by an empty recovery phase · <a href="#recipe-recovery">config ↓</a></td><td>Whether queued work drains safely, circuits close, pools recover, and traffic stabilizes.</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Try a DNS failure</h3>
+        <pre data-language="dns-run.yaml"><code>schema_version: 1
+name: DNS failure
+proxies:
+  - name: dns
+    protocol: udp
+    listen: 127.0.0.1:15353
+    upstream: 1.1.1.1:53
+phases:
+  - name: resolver failure
+    proxies:
+      - proxy: dns
+        faults:
+          - type: dns
+            case: serv-fail</code></pre>
+        <pre data-language="server"><code><span class="command">fault run dns-proxy.yaml</span></code></pre>
+        <pre data-language="client"><code><span class="command">dig @127.0.0.1 -p 15353 example.com</span></code></pre>
+      </section>
+
+      <section id="recipes">
+        <div class="label">Incidents</div>
+        <h2>Reproduce failures you actually see</h2>
+        <p>Each recipe is a complete entry to paste beneath a run document’s <code>phases:</code> key. The examples assume named <code>database</code>, <code>payments</code>, and <code>dns</code> proxies are declared at the top level. A phase replaces the complete chain for every proxy it names, so faults meant to coexist appear together.</p>
+        <div class="recipe-list">
+          <details class="recipe" id="recipe-dns-outage">
+            <summary>DNS resolver unavailable</summary>
+            <p>Leave queries unanswered long enough for the client’s own resolver deadline to decide the outcome.</p>
+            <pre data-language="phase.yaml"><code>- name: resolver outage
+  duration: 30s
+  proxies:
+    - proxy: dns
+      faults:
+        - type: dns
+          case: timeout</code></pre>
+          </details>
+
+          <details class="recipe" id="recipe-dns-answer">
+            <summary>DNS record points somewhere wrong</summary>
+            <p>Return a syntactically valid but incorrect A record after a small resolver delay.</p>
+            <pre data-language="phase.yaml"><code>- name: incorrect service discovery
+  duration: 30s
+  proxies:
+    - proxy: dns
+      faults:
+        - type: dns
+          case: random-a
+          delay_ms: 100</code></pre>
+          </details>
+
+          <details class="recipe" id="recipe-backlog">
+            <summary>Downstream backlog keeps growing</summary>
+            <p>Responses become both late and slow to drain, while requests can still reach the database normally.</p>
+            <pre data-language="phase.yaml"><code>- name: slow database completion
+  duration: 2m
+  proxies:
+    - proxy: database
+      faults:
+        - type: latency
+          flow: to-client
+          distribution:
+            type: uniform
+            min_ms: 250.0
+            max_ms: 500.0
+        - type: bandwidth
+          flow: to-client
+          bytes_per_second: 32768</code></pre>
+          </details>
+
+          <details class="recipe" id="recipe-backpressure">
+            <summary>Backpressure stops protecting the service</summary>
+            <p>A very slow consumer tests whether upstream production and in-process buffering remain bounded.</p>
+            <pre data-language="phase.yaml"><code>- name: extremely slow payment responses
+  duration: 2m
+  proxies:
+    - proxy: payments
+      faults:
+        - type: bandwidth
+          flow: to-client
+          bytes_per_second: 8192</code></pre>
+          </details>
+
+          <details class="recipe" id="recipe-region">
+            <summary>Cross-region link becomes congested</summary>
+            <p>Combine a higher baseline, intermittent tail delay, and constrained throughput on each connection stream.</p>
+            <pre data-language="phase.yaml"><code>- name: congested remote region
+  duration: 3m
+  proxies:
+    - proxy: payments
+      faults:
+        - type: latency
+          flow: both
+          distribution:
+            type: uniform
+            min_ms: 80.0
+            max_ms: 140.0
+        - type: jitter
+          flow: both
+          min_delay_ms: 20.0
+          max_delay_ms: 250.0
+          probability: 0.15
+        - type: bandwidth
+          flow: both
+          bytes_per_second: 131072</code></pre>
+          </details>
+
+          <details class="recipe" id="recipe-partition">
+            <summary>Responses disappear in one direction</summary>
+            <p>Requests reach the database, but its response bytes remain pending instead of being rejected immediately.</p>
+            <pre data-language="phase.yaml"><code>- name: asymmetric partition
+  duration: 45s
+  proxies:
+    - proxy: database
+      faults:
+        - type: blackhole
+          flow: to-client</code></pre>
+          </details>
+
+          <details class="recipe" id="recipe-reset">
+            <summary>Pooled connections are dropped</summary>
+            <p>Some active database streams reset when response traffic next uses the selected flow.</p>
+            <pre data-language="phase.yaml"><code>- name: load balancer rotation
+  duration: 45s
+  proxies:
+    - proxy: database
+      faults:
+        - type: connection-reset
+          flow: to-client
+          probability: 0.3</code></pre>
+          </details>
+
+          <details class="recipe" id="recipe-retries">
+            <summary>Retries amplify an intermittent incident</summary>
+            <p>Unpredictable completion time and occasional resets exercise the client’s combined retry policy.</p>
+            <pre data-language="phase.yaml"><code>- name: unstable payment dependency
+  duration: 90s
+  proxies:
+    - proxy: payments
+      faults:
+        - type: jitter
+          flow: both
+          min_delay_ms: 100.0
+          max_delay_ms: 1000.0
+          probability: 0.5
+        - type: connection-reset
+          flow: to-client
+          probability: 0.2</code></pre>
+          </details>
+
+          <details class="recipe" id="recipe-compound">
+            <summary>Several dependencies degrade together</summary>
+            <p>One phase changes three named proxies atomically, each with a failure appropriate to its transport.</p>
+            <pre data-language="phase.yaml"><code>- name: checkout dependency incident
+  duration: 60s
+  proxies:
+    - proxy: database
+      faults:
+        - type: latency
+          flow: to-client
+          distribution:
+            type: uniform
+            min_ms: 200.0
+            max_ms: 450.0
+    - proxy: payments
+      faults:
+        - type: connection-reset
+          flow: to-client
+          probability: 0.2
+    - proxy: dns
+      faults:
+        - type: dns
+          case: serv-fail
+          delay_ms: 250</code></pre>
+          </details>
+
+          <details class="recipe" id="recipe-recovery">
+            <summary>The network recovers after sustained failure</summary>
+            <p>The empty phase clears every active chain. Recovery behavior is observed rather than assumed.</p>
+            <pre data-language="phases.yaml"><code>- name: database partition
+  duration: 60s
+  proxies:
+    - proxy: database
+      faults:
+        - type: blackhole
+          flow: both
+
+- name: network recovered
+  duration: 2m
+  proxies: []</code></pre>
+          </details>
+        </div>
+      </section>
+
+      <section id="scheduling">
+        <div class="label">Timing</div>
+        <h2>Let conditions change during the run</h2>
+        <p>A useful experiment rarely ends with “the network is slow”. It asks
+          what happens when a healthy dependency becomes slow and then
+          recovers. Put those conditions into ordered phases. Each phase
+          replaces the named proxy chains, runs for its duration, then yields
+          to the next one.</p>
+        <table>
+          <thead><tr><th>Final phase</th><th>What happens</th></tr></thead>
+          <tbody>
+            <tr><td>Has <code>duration</code></td><td>The run exits when that duration elapses.</td></tr>
+            <tr><td>Omits <code>duration</code></td><td>It remains active until you stop or interrupt the run.</td></tr>
+          </tbody>
+        </table>
+        <pre data-language="scheduled-run.yaml"><code>schema_version: 1
+name: database instability
+
+proxies:
+  - name: database
+    protocol: tcp
+    listen: 127.0.0.1:15432
+    upstream: 127.0.0.1:5432
+
+phases:
+  - name: healthy
+    duration: 5s
+    proxies: []
+
+  - name: slow
+    duration: 10s
+    proxies:
+      - proxy: database
+        faults:
+          - type: latency
+            flow: both
+            distribution:
+              type: uniform
+              min_ms: 100.0
+              max_ms: 250.0
+
+  - name: recovered
+    duration: 5s
+    proxies: []</code></pre>
+        <pre data-language="shell"><code><span class="command">fault run scheduled-run.yaml</span></code></pre>
+        <p class="aside">Programmatic schedules can add, modify, delete, start, or stop future phases. A phase becomes immutable as soon as it starts; invalid mutation is an error, never a silent no-op.</p>
+      </section>
+
+      <section id="deployment">
+        <div class="label">Running beside your system</div>
+        <h2>Put fault between client and dependency</h2>
+        <p><code>fault</code> does not provision cloud resources, rewrite routes, or inject itself into workloads. Deployment means running the proxy somewhere reachable and explicitly pointing the client at its listener.</p>
+
+        <div class="deployment-grid">
+          <article>
+            <h3>Local process</h3>
+            <p>Run the CLI beside the application or test runner. Point the dependency URL at <code>127.0.0.1</code>. Best for development, CI jobs, and one-off experiments.</p>
+          </article>
+          <article>
+            <h3>Pod sidecar</h3>
+            <p>Run fault in the same pod and network namespace as the application. The application uses the local proxy port; fault uses the real service DNS name upstream.</p>
+          </article>
+          <article>
+            <h3>Shared proxy</h3>
+            <p>Expose one fault instance to several explicit clients. Named listeners can target different upstreams, but the shared process also creates a shared blast radius.</p>
+          </article>
+          <article>
+            <h3>Embedded engine</h3>
+            <p>Let a Rust test binary or Python experiment own the engine lifecycle. This is the natural model when network faults are one step in a larger workflow.</p>
+          </article>
+        </div>
+
+        <h3>Local or CI</h3>
+        <div class="diagram" aria-label="Application through local fault process to dependency">
+          <span>application<br><small>localhost:15432</small></span><span class="arrow">→</span><span>fault<br><small>same host or job</small></span><span class="arrow">→</span><span>dependency<br><small>database:5432</small></span>
+        </div>
+        <pre data-language="server"><code><span class="command">fault run database-latency.json --journal fault-run.ndjson</span></code></pre>
+        <p>Bind to loopback when only processes on the same host need access. Keep the journal as a CI artifact if the individual stream or exchange records matter.</p>
+
+        <h3>Container or Kubernetes sidecar</h3>
+        <div class="diagram" aria-label="Application and fault sidecar in one pod forwarding to a service">
+          <span>application container<br><small>127.0.0.1:15432</small></span><span class="arrow">→</span><span>fault sidecar<br><small>pod network</small></span><span class="arrow">→</span><span>database service<br><small>database:5432</small></span>
+        </div>
+        <pre data-language="pod container"><code>command: [<span class="value">"fault"</span>]
+args: [<span class="value">"run"</span>, <span class="value">"/config/run.json"</span>, <span class="value">"--journal"</span>, <span class="value">"/records/run.ndjson"</span>]</code></pre>
+        <pre data-language="proxy.json excerpt"><code>{
+  <span class="key">"listen"</span>: <span class="value">"0.0.0.0:15432"</span>,
+  <span class="key">"upstream"</span>: <span class="value">"database.default.svc.cluster.local:5432"</span>
+}</code></pre>
+        <p>Mount configuration read-only. Mount a writable volume only when using <code>--journal</code>; otherwise let the dashboard or JSON output go to the container logs. Configure the application—not the cluster—to use the sidecar listener.</p>
+
+        <div class="callout"><p><strong>Avoid routing loops.</strong> The upstream address must resolve to the real dependency, never back to fault’s listener. DNS experiments also require the client to send queries to the configured UDP listener; fault does not replace the operating system resolver automatically.</p></div>
+      </section>
+
+      <section id="implementations">
+        <div class="label">Rust and Python</div>
+        <h2>Drive fault from your own code</h2>
+        <p>The same engine is available directly from Rust and through a thin PyO3 binding. Rust always owns lifecycle, fault semantics, schedules, events, validation, and errors.</p>
+
+        <h3>Start the engine from Rust</h3>
+        <pre data-language="rust"><code>use fault_engine::FaultEngine;
+use fault_model::{
+    DelayDistribution, FaultSpec, Phase, Proxy, ProxyFaults, Run,
+    TrafficFlow, TransportProtocol, SCHEMA_VERSION,
+};
+
+#[tokio::main]
+async fn main() -&gt; Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt; {
+    let run = Run {
+        schema_version: SCHEMA_VERSION,
+        name: <span class="value">"permanent database latency"</span>.into(),
+        proxies: vec![Proxy {
+            name: <span class="value">"database"</span>.into(),
+            protocol: TransportProtocol::Tcp,
+            listen: <span class="value">"127.0.0.1:15432"</span>.into(),
+            upstream: <span class="value">"127.0.0.1:5432"</span>.into(),
+        }],
+        phases: vec![Phase {
+            name: <span class="value">"degraded"</span>.into(),
+            duration: None,
+            proxies: vec![ProxyFaults {
+                proxy: <span class="value">"database"</span>.into(),
+                faults: vec![FaultSpec::Latency {
+                    flow: TrafficFlow::Both,
+                    distribution: DelayDistribution::Uniform {
+                        min_ms: 100.0,
+                        max_ms: 250.0,
+                    },
+                }],
+            }],
+        }],
+    };
+
+    let running = FaultEngine::from_run(&amp;run).start().await?;
+    println!(<span class="value">"listening on {}"</span>, running.endpoints().tcp[0]);
+    tokio::signal::ctrl_c().await?;
+
+    let summary = running.shutdown().await?;
+    println!(<span class="value">"{} streams impacted"</span>, summary.status.tcp.impacted);
+    Ok(())
+}</code></pre>
+
+        <h3>Start the engine from Python 3.14+</h3>
+        <p>Python supplies familiar orchestration around the Rust capabilities without becoming a second domain API.</p>
+        <pre data-language="python"><code>import asyncio
+from faultlib import Engine, Run
+
+run: Run = {
+    <span class="value">"schema_version"</span>: 1,
+    <span class="value">"name"</span>: <span class="value">"slow DNS"</span>,
+    <span class="value">"proxies"</span>: [{
+        <span class="value">"name"</span>: <span class="value">"dns"</span>,
+        <span class="value">"protocol"</span>: <span class="value">"udp"</span>,
+        <span class="value">"listen"</span>: <span class="value">"127.0.0.1:15353"</span>,
+        <span class="value">"upstream"</span>: <span class="value">"1.1.1.1:53"</span>,
+    }],
+    <span class="value">"phases"</span>: [{
+        <span class="value">"name"</span>: <span class="value">"degraded"</span>,
+        <span class="value">"proxies"</span>: [{
+            <span class="value">"proxy"</span>: <span class="value">"dns"</span>,
+            <span class="value">"faults"</span>: [{
+                <span class="value">"type"</span>: <span class="value">"dns"</span>, <span class="value">"case"</span>: <span class="value">"delay"</span>, <span class="value">"delay_ms"</span>: 500
+            }],
+        }],
+    }],
+}
+
+async def main() -&gt; None:
+    async with Engine(run) as engine:
+        async with asyncio.TaskGroup() as tasks:
+            tasks.create_task(engine.run())
+            print(engine.endpoints.udp[0])
+            await asyncio.Event().wait()
+
+asyncio.run(main())</code></pre>
+
+        <h3>Read connection records as they arrive</h3>
+        <pre data-language="python"><code>from faultlib import StatusEvent, TcpStreamEvent, UdpExchangeEvent
+
+async def observe(engine: Engine) -&gt; None:
+    while engine.alive():
+        match event := await engine.next_event():
+            case StatusEvent(status):
+                print(status.tcp.active, status.udp.active)
+            case TcpStreamEvent(stream):
+                print(stream.stream_id, stream.outcome)
+            case UdpExchangeEvent(exchange):
+                print(exchange.exchange_id, exchange.outcome)
+            case None:
+                return</code></pre>
+
+        <h3>Change future phases from Python</h3>
+        <pre data-language="python"><code>async with engine.schedule() as schedule:
+    phase = await schedule.add_phase(
+        <span class="value">"database latency"</span>,
+        {<span class="value">"database"</span>: [{
+            <span class="value">"type"</span>: <span class="value">"latency"</span>,
+            <span class="value">"flow"</span>: <span class="value">"both"</span>,
+            <span class="value">"distribution"</span>: {
+                <span class="value">"type"</span>: <span class="value">"uniform"</span>,
+                <span class="value">"min_ms"</span>: 100.0,
+                <span class="value">"max_ms"</span>: 250.0,
+            },
+        }]},
+        duration=<span class="value">"30s"</span>,
+    )
+    await schedule.start_phase(phase)
+
+    while transition := await schedule.next_transition():
+        print(transition.phase.name, transition.phase.state)</code></pre>
+        <p>This is deliberately ordinary Python. It can sit beside Kubernetes clients, test runners, cloud SDKs, or application-specific checks while the network hot path remains entirely in Rust.</p>
+      </section>
+
+      <section id="evidence">
+        <div class="label">Traffic records</div>
+        <h2>See what happened to each connection</h2>
+        <p>When an experiment surprises you, a counter saying “some traffic
+          was affected” is not enough. fault can identify an individual TCP
+          stream or UDP exchange and record what it did. It deliberately does
+          not decide whether your application passed the experiment.</p>
+        <ul>
+          <li><strong>Status</strong> is a cheap live aggregate: active, completed, impacted, failed, traffic averages, and applied delay.</li>
+          <li><strong>Transport records</strong> identify one TCP stream or UDP exchange and describe bytes, faults, outcome, and failure.</li>
+          <li><strong>The journal</strong> writes run metadata, completed transport records, and the final status as NDJSON.</li>
+        </ul>
+        <pre data-language="shell"><code><span class="command">fault run proxy.json --journal run.ndjson</span>
+<span class="command">fault --output json run scheduled-run.json --journal run.ndjson</span></code></pre>
+        <div class="callout"><p>Evidence delivery is bounded and best effort. A slow journal or Python consumer never stalls traffic. Aggregate status remains complete, while <code>dropped_records</code> tells you that individual records were missed.</p></div>
+      </section>
+
+      <section id="examples">
+        <div class="label">Putting it to work</div>
+        <h2>Use fault with a real system</h2>
+        <p>The examples now move beyond a single proxy. They show how to route
+          an existing application, preserve TLS identity, retain records from
+          a load test, and let a larger Python experiment control the network.</p>
+
+        <h3>1. Slow database responses</h3>
+        <p>Add 200–350 ms only to traffic returning from a PostgreSQL server. Client requests reach the database normally.</p>
+        <pre data-language="database-latency.yaml"><code>schema_version: 1
+name: slow database responses
+proxies:
+  - name: database
+    protocol: tcp
+    listen: 127.0.0.1:15432
+    upstream: 127.0.0.1:5432
+phases:
+  - name: degraded
+    proxies:
+      - proxy: database
+        faults:
+          - type: latency
+            flow: to-client
+            distribution:
+              type: uniform
+              min_ms: 200.0
+              max_ms: 350.0</code></pre>
+        <pre data-language="server"><code><span class="command">fault run database-latency.yaml</span></code></pre>
+        <pre data-language="client"><code><span class="command">psql postgresql://localhost:15432/app</span></code></pre>
+
+        <h3>2. Reset a TCP connection</h3>
+        <p>The first selected client-bound traffic resets the established connection.</p>
+        <pre data-language="connection-reset.yaml"><code>schema_version: 1
+name: reset database connections
+proxies:
+  - name: database
+    protocol: tcp
+    listen: 127.0.0.1:15432
+    upstream: 127.0.0.1:5432
+phases:
+  - name: resetting
+    proxies:
+      - proxy: database
+        faults:
+          - type: connection-reset
+            flow: to-client
+            probability: 1.0</code></pre>
+        <pre data-language="server"><code><span class="command">fault run connection-reset.yaml</span></code></pre>
+
+        <h3>3. Return a delayed NXDOMAIN</h3>
+        <p>Reply locally after 750 ms. No query reaches the configured upstream.</p>
+        <pre data-language="dns-nxdomain.yaml"><code>schema_version: 1
+name: delayed NXDOMAIN
+proxies:
+  - name: dns
+    protocol: udp
+    listen: 127.0.0.1:15353
+    upstream: 1.1.1.1:53
+phases:
+  - name: missing record
+    proxies:
+      - proxy: dns
+        faults:
+          - type: dns
+            case: nx-domain
+            delay_ms: 750</code></pre>
+        <pre data-language="server"><code><span class="command">fault run dns-nxdomain.yaml</span></code></pre>
+        <pre data-language="client"><code><span class="command">dig @127.0.0.1 -p 15353 example.com</span></code></pre>
+
+        <h3>4. Degrade several dependencies in phases</h3>
+        <p>One engine can own several named proxies. This run begins healthy, slows database responses, introduces a compound database/payments/DNS failure, then restores every proxy. A phase replaces the complete fault chain for each proxy it names; unnamed proxies are healthy in that phase.</p>
+        <pre data-language="full-stack.yaml"><code>schema_version: 1
+name: checkout dependency degradation
+
+proxies:
+  - name: database
+    protocol: tcp
+    listen: 127.0.0.1:15432
+    upstream: database:5432
+  - name: payments
+    protocol: tcp
+    listen: 127.0.0.1:18081
+    upstream: payments:8080
+  - name: dns
+    protocol: udp
+    listen: 127.0.0.1:15353
+    upstream: 1.1.1.1:53
+
+phases:
+  - name: baseline
+    duration: 15s
+    proxies: []
+
+  - name: slow database reads
+    duration: 45s
+    proxies:
+      - proxy: database
+        faults:
+          - type: latency
+            flow: to-client
+            distribution:
+              type: uniform
+              min_ms: 180.0
+              max_ms: 320.0
+
+  - name: cascading dependency failure
+    duration: 30s
+    proxies:
+      - proxy: database
+        faults:
+          - type: latency
+            flow: both
+            distribution:
+              type: uniform
+              min_ms: 300.0
+              max_ms: 600.0
+          - type: bandwidth
+            flow: to-client
+            bytes_per_second: 32768
+
+      - proxy: payments
+        faults:
+          - type: jitter
+            flow: both
+            min_delay_ms: 50.0
+            max_delay_ms: 400.0
+            probability: 0.4
+          - type: connection-reset
+            flow: to-client
+            probability: 0.2
+
+      - proxy: dns
+        faults:
+          - type: dns
+            case: serv-fail
+            delay_ms: 250
+
+  - name: recovered
+    duration: 15s
+    proxies: []</code></pre>
+        <pre data-language="server"><code><span class="command">fault run full-stack.yaml --journal full-stack.ndjson</span></code></pre>
+
+        <h3>5. Route an existing application through fault</h3>
+        <p>No application code needs to know about fault. Keep the real dependency addresses in the proxy configuration, then override the environment variables the application already uses for remote endpoints.</p>
+        <pre data-language="normal environment"><code>DATABASE_URL=postgresql://database:5432/checkout
+PAYMENTS_BASE_URL=http://payments:8080</code></pre>
+        <pre data-language="experiment environment"><code>DATABASE_URL=postgresql://127.0.0.1:15432/checkout
+PAYMENTS_BASE_URL=http://127.0.0.1:18081</code></pre>
+        <pre data-language="server"><code><span class="command">fault run full-stack.yaml --journal full-stack.ndjson</span></code></pre>
+        <pre data-language="application"><code><span class="command">env $(cat .env.fault) ./checkout-service</span></code></pre>
+        <div class="callout"><p>The application still selects its dependencies in the usual way. During the experiment, those addresses name fault’s listeners; fault’s upstreams retain the real service addresses. For TLS endpoints, preserve the expected hostname through client dial overrides or local name resolution so certificate verification remains valid.</p></div>
+
+        <h3>6. Route an HTTPS request with HTTPX</h3>
+        <p>fault forwards TLS without terminating it. Connect HTTPX to fault’s
+          listener, but retain the upstream hostname for both HTTP and TLS
+          identity. Certificate verification remains enabled.</p>
+        <pre data-language="python"><code>import httpx
+
+async with httpx.AsyncClient() as client:
+    response = await client.get(
+        <span class="value">"https://127.0.0.1:18080/"</span>,
+        headers={<span class="value">"Host"</span>: <span class="value">"www.google.com"</span>},
+        extensions={<span class="value">"sni_hostname"</span>: <span class="value">"www.google.com"</span>},
+    )
+    response.raise_for_status()</code></pre>
+        <p class="aside">The URL selects the TCP destination. The
+          <code>Host</code> header selects the HTTP authority, and HTTPX’s
+          <code>sni_hostname</code> extension selects the TLS server name used
+          for certificate validation. Do not replace this with
+          <code>verify=False</code>.</p>
+
+        <h3>7. Keep connection records from a load test</h3>
+        <p>The dashboard remains light while the journal records completed streams or exchanges as NDJSON.</p>
+        <pre data-language="server"><code><span class="command">fault run api.json --journal fault-run.ndjson</span></code></pre>
+        <pre data-language="client"><code><span class="command">oha -z 30s -c 10 http://127.0.0.1:18080/</span></code></pre>
+        <pre data-language="after"><code><span class="command">jq -c 'select(.type == "tcp-stream-completed")' fault-run.ndjson</span></code></pre>
+
+        <h3>8. Coordinate several faults with a broader Python experiment</h3>
+        <p>External orchestration stays ordinary Python. Here, pod deletion and application recovery checks belong to the experiment—not to fault—while one phase changes two dependency proxies atomically.</p>
+        <pre data-language="python"><code>async with Engine(config) as engine:
+    async with engine.schedule() as schedule:
+        compound_failure = await schedule.add_phase(
+            <span class="value">"database slow while payments restart"</span>,
+            {
+                <span class="value">"database"</span>: [{
+                    <span class="value">"type"</span>: <span class="value">"latency"</span>,
+                    <span class="value">"flow"</span>: <span class="value">"both"</span>,
+                    <span class="value">"distribution"</span>: {
+                        <span class="value">"type"</span>: <span class="value">"uniform"</span>,
+                        <span class="value">"min_ms"</span>: 150.0,
+                        <span class="value">"max_ms"</span>: 300.0,
+                    },
+                }],
+                <span class="value">"payments"</span>: [{
+                    <span class="value">"type"</span>: <span class="value">"connection-reset"</span>,
+                    <span class="value">"flow"</span>: <span class="value">"to-client"</span>,
+                    <span class="value">"probability"</span>: 0.25,
+                }],
+            },
+            duration=<span class="value">"30m"</span>,
+        )
+
+        await schedule.start_phase(compound_failure)
+        await delete_test_pod(<span class="value">"payments-0"</span>)
+        await assert_checkout_remains_available()
+
+        while (status := await engine.status()).tcp.impacted == 0:
+            await asyncio.sleep(0.5)
+
+        await wait_for_replacement_pod(<span class="value">"payments-0"</span>)
+        await schedule.stop_phase(compound_failure)</code></pre>
+      </section>
+
+      <section id="agents">
+        <div class="label">Agent skill</div>
+        <h2>Teach an agent how to use fault</h2>
+        <p>The repository includes a small
+          <a href="https://github.com/fault-project/fault/tree/main/skills/fault-network-injection">fault-network-injection skill</a>
+          for coding agents. Give the skill to an agent when you want it to
+          design or run a network experiment as part of a larger task.</p>
+        <p>The skill starts with the failure you are investigating. It guides
+          the agent through routing, transport choice, fault chains, phases,
+          and useful connection records. It also tells the agent when to use
+          the CLI, the Rust engine, or the Python binding, and points it back
+          to the generated schemas instead of asking it to guess field names.</p>
+        <p>Install the bundled skill into the user-level directory for your
+          agent:</p>
+        <pre data-language="shell"><code><span class="command">fault skill install --target codex</span>
+<span class="command">fault skill install --target claude</span>
+<span class="command">fault skill install --target opencode</span></code></pre>
+        <p class="aside">fault asks whether to install for the current
+          workspace or your home directory. Agents and scripts can answer
+          directly with <code>--scope workspace</code> or
+          <code>--scope home</code>. The command will not replace a modified
+          skill unless you add <code>--force</code>. Use
+          <code>fault skill show</code> to inspect or pipe the exact skill
+          bundled with your version of fault.</p>
+        <div class="callout"><p><strong>The skill is the integration.</strong>
+          fault does not need to embed an agent or run an MCP server. Your
+          existing agent gains a concise description of the tool and still
+          uses the same public CLI, Python, or Rust interface as everyone
+          else.</p></div>
+        <p>For a smaller context window, start with the
+          <a href="agent-reference.md">agent reference</a>. For the complete
+          workflow and safety guidance, use the
+          <a href="https://github.com/fault-project/fault/blob/main/skills/fault-network-injection/SKILL.md">SKILL.md</a>
+          file.</p>
+      </section>
+
+      <section id="reference">
+        <div class="label">Exact contracts</div>
+        <h2>Use the reference when field names matter</h2>
+        <p>The CLI accepts JSON and YAML, and both become the same Rust types.
+          The <a href="reference.html">human reference</a> explains every field,
+          fault variant, constraint, event, and result. Use the raw schemas when
+          generating a run or checking an exact field.
+          AI agents can begin with the shorter
+          <a href="agent-reference.md">agent reference</a>.</p>
+        <table>
+          <tbody>
+            <tr><td><a href="schemas/run.schema.json">run.schema.json</a></td><td>Routes and ordered phases for every run.</td></tr>
+            <tr><td><a href="schemas/run-progress.schema.json">run-progress.schema.json</a></td><td>Live phase progress.</td></tr>
+            <tr><td><a href="schemas/run-result.schema.json">run-result.schema.json</a></td><td>Completed run result.</td></tr>
+            <tr><td><a href="schemas/journal-event.schema.json">journal-event.schema.json</a></td><td>NDJSON journal events.</td></tr>
+          </tbody>
+        </table>
+        <p>Build from source with current stable Rust. The Python binding requires Python 3.14 or newer.</p>
+        <pre data-language="shell"><code><span class="command">cargo build --release -p fault-cli</span>
+<span class="command">uv sync --project fault-python --python 3.14 --reinstall-package faultlib</span></code></pre>
+      </section>
+
+      <footer>
+        Copyright © 2026 Sylvain Hellegouarch ·
+        <a href="https://github.com/fault-project/fault/blob/main/LICENSE">Apache License 2.0</a> ·
+        <a href="https://github.com/fault-project/fault">Source</a> ·
+        <a href="https://github.com/fault-project/fault/tree/main/skills/fault-network-injection">Agent skill</a>
+      </footer>
+    </main>
+  </div>
+  <script>
+    const themeToggle = document.querySelector("#theme-toggle");
+
+    function showTheme(theme) {
+      document.documentElement.dataset.theme = theme;
+      themeToggle.textContent = `theme: ${theme}`;
+      themeToggle.setAttribute(
+        "aria-label",
+        `Switch to ${theme === "dark" ? "light" : "dark"} theme`,
+      );
+    }
+
+    showTheme(document.documentElement.dataset.theme);
+    themeToggle.addEventListener("click", () => {
+      const theme = document.documentElement.dataset.theme === "dark"
+        ? "light"
+        : "dark";
+      showTheme(theme);
+      try {
+        localStorage.setItem("fault-theme", theme);
+      } catch {}
+    });
+
+    /* speed-highlight tokenizer and selected grammars, CC0-1.0.
+       https://github.com/speed-highlight/core */
+    const SHJ_EXPANSIONS = {
+      num: { type: "num", match: /(\.e?|\b)\d(e-|[\d.oxa-fA-F_])*(\.|\b)/g },
+      str: { type: "str", match: /(["'])(\\[^]|(?!\1)[^\r\n\\])*\1?/g },
+      strDouble: { type: "str", match: /"((?!")[^\r\n\\]|\\[^])*"?/g },
+    };
+    const SHJ_VAR = {
+      type: "var",
+      match: /\$\w+|\${[^}]*}|\$\([^)]*\)/g,
+    };
+    const SHJ_LANGUAGES = {
+      bash: [
+        { type: "cmnt", sub: "todo", match: /#.*/g },
+        { type: "str", match: /(["'])((?!\1)[^\r\n\\]|\\[^])*\1?/g, sub: [SHJ_VAR] },
+        { type: "oper", match: /(?<=\s|^)\.*\/[a-z/_.-]+/gi },
+        { type: "kwd", match: /\s-[a-zA-Z]+|[&|;]+|\b(unset|readonly|shift|export|if|fi|else|elif|while|do|done|for|until|case|esac|break|continue|exit|return|trap|wait|eval|exec|then|declare|enable|local|select|typeset|time|add|remove|install|update|delete)(?=\s|$)/g },
+        { expand: "num" },
+        { type: "func", match: /(?<=(^|\||\&\&|\;)\s*)[a-z_.-]+(?=\s|$)/gim },
+        { type: "bool", match: /(?<=\s|^)(true|false)(?=\s|$)/g },
+        { type: "oper", match: /[=(){}<>!]+/g },
+        { type: "var", match: /(?<=\s|^)[\w_]+(?=\s*=)/g },
+        SHJ_VAR,
+      ],
+      json: [
+        { type: "var", match: /(("|')((?!\2)[^\r\n\\]|\\[^])*\2|[a-zA-Z]\w*)(?=\s*:)/g },
+        { expand: "str" },
+        { expand: "num" },
+        { type: "num", match: /\bnull\b/g },
+        { type: "bool", match: /\b(true|false)\b/g },
+      ],
+      python: [
+        { match: /#.*/g, type: "cmnt", sub: "todo" },
+        { type: "str", match: /f("""|''')(\\[^]|(?!\1)[^])*\1?|f("|')(\\[^]|(?!\3).)*\3?/gi },
+        { match: /("""|''')(\\[^]|(?!\1)[^])*\1?/g, type: "cmnt", sub: "todo" },
+        { expand: "str" },
+        { type: "kwd", match: /\b(and|as|assert|async|await|break|class|continue|def|del|elif|else|except|finally|for|from|global|if|import|in|is|lambda|nonlocal|not|or|pass|raise|return|try|while|with|yield)\b/g },
+        { type: "bool", match: /\b(False|True|None)\b/g },
+        { expand: "num" },
+        { type: "func", match: /[a-z_]\w*(?=\s*\()/gi },
+        { type: "oper", match: /[-/*+<>,=!&|^%]+/g },
+        { type: "class", match: /\b[A-Z][\w_]*\b/g },
+      ],
+      rust: [
+        { match: /\/\/.*\n?|\/\*((?!\*\/)[^])*(\*\/)?/g, type: "cmnt", sub: "todo" },
+        { type: "type", match: /'[a-z_]\w*(?!')/g },
+        { expand: "str" },
+        { expand: "num" },
+        { type: "kwd", match: /\b(as|break|const|continue|crate|else|enum|extern|false|fn|for|if|impl|in|let|loop|match|mod|move|mut|pub|ref|return|self|Self|static|struct|super|trait|true|type|unsafe|use|where|while|async|await|dyn|abstract|become|box|do|final|macro|override|priv|typeof|unsized|virtual|yield|try)\b/g },
+        { type: "oper", match: /[/*+:?&|%^~=!,<>.^-]+/g },
+        { type: "class", match: /\b[A-Z][\w_]*\b/g },
+        { type: "func", match: /[a-zA-Z_][\w_]*(?=\s*!?\s*\()/g },
+      ],
+      yaml: [
+        { match: /#.*/g, type: "cmnt", sub: "todo" },
+        { expand: "str" },
+        { type: "str", match: /(>|\|)\r?\n((\s[^\n]*)?(\r?\n|$))*/g },
+        { type: "type", match: /!![a-z]+/g },
+        { type: "bool", match: /\b(Yes|No)\b/g },
+        { type: "oper", match: /[+:-]/g },
+        { expand: "num" },
+        { type: "var", match: /[a-zA-Z][\w-]*(?=:)/g },
+      ],
+    };
+
+    function* shjTokenize(source, language, emit, parentType) {
+      let position = 0;
+      try {
+        const grammar = typeof language === "string"
+          ? yield language
+          : language;
+        const parts = [...(grammar.sub ?? grammar)];
+        const matches = [];
+        while (position < source.length) {
+          let selected = { index: null };
+          for (let index = parts.length - 1; index >= 0; index--) {
+            const part = parts[index].expand
+              ? SHJ_EXPANSIONS[parts[index].expand]
+              : parts[index];
+            if (matches[index] === undefined || matches[index].match.index < position) {
+              part.match.lastIndex = position;
+              const match = part.match.exec(source);
+              if (match === null) {
+                parts.splice(index, 1);
+                matches.splice(index, 1);
+                continue;
+              }
+              matches[index] = { match, lastIndex: part.match.lastIndex };
+            }
+            const candidate = matches[index];
+            if (candidate.match[0] &&
+                (candidate.match.index <= selected.index || selected.index === null)) {
+              selected = {
+                part,
+                index: candidate.match.index,
+                match: candidate.match[0],
+                end: candidate.lastIndex,
+              };
+            }
+          }
+          if (selected.index === null) break;
+          emit(source.slice(position, selected.index), grammar.type);
+          position = selected.index;
+          if (selected.part.sub) {
+            const nested = typeof selected.part.sub === "function"
+              ? selected.part.sub(selected.match)
+              : selected.part.sub;
+            yield* shjTokenize(
+              selected.match,
+              nested,
+              emit,
+              selected.part.type,
+            );
+          } else {
+            emit(selected.match, selected.part.type);
+          }
+          position = selected.end;
+        }
+        emit(source.slice(position), grammar.type);
+      } catch {
+        emit(source.slice(position), parentType);
+      }
+    }
+
+    function shjEscape(text) {
+      return text
+        .replaceAll("&", "&#38;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
+    }
+
+    function shjHighlight(source, language) {
+      let html = "";
+      const emit = (text, type) => {
+        const escaped = shjEscape(text);
+        html += type
+          ? `<span class="shj-syn-${type}">${escaped}</span>`
+          : escaped;
+      };
+      const tokenizer = shjTokenize(source, SHJ_LANGUAGES[language], emit);
+      let token = tokenizer.next();
+      while (!token.done) {
+        token = tokenizer.next(SHJ_LANGUAGES[token.value]);
+      }
+      return html;
+    }
+
+    function codeLanguage(label) {
+      if (label.includes("json")) return "json";
+      if (label.includes("yaml") || label.includes("yml")) return "yaml";
+      if (label === "python") return "python";
+      if (label === "rust") return "rust";
+      if (label.includes("container") || label.includes("pod")) return "yaml";
+      return "bash";
+    }
+
+    for (const block of document.querySelectorAll("pre[data-language] code")) {
+      const language = codeLanguage(block.parentElement.dataset.language);
+      block.innerHTML = shjHighlight(block.textContent, language);
+    }
+
+    const links = [...document.querySelectorAll('nav a[href^="#"]')];
+    const sections = links
+      .map((link) => document.querySelector(link.getAttribute("href")))
+      .filter(Boolean);
+
+    function selectSection(id) {
+      for (const link of links) {
+        const active = link.getAttribute("href") === `#${id}`;
+        link.classList.toggle("active", active);
+        if (active) link.setAttribute("aria-current", "location");
+        else link.removeAttribute("aria-current");
+      }
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (visible) selectSection(visible.target.id);
+      },
+      { rootMargin: "-18% 0px -68%", threshold: [0, 0.2, 0.6] },
+    );
+
+    sections.forEach((section) => observer.observe(section));
+    selectSection(location.hash.slice(1) || sections[0]?.id);
+  </script>
+</body>
+</html>

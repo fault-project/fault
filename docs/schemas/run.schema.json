@@ -1,0 +1,453 @@
+{
+  "$defs": {
+    "DelayDistribution": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "mean_ms": {
+              "format": "double",
+              "minimum": 0.0,
+              "type": "number"
+            },
+            "stddev_ms": {
+              "exclusiveMinimum": 0.0,
+              "format": "double",
+              "type": "number"
+            },
+            "type": {
+              "const": "normal",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "mean_ms",
+            "stddev_ms"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "scale_ms": {
+              "exclusiveMinimum": 0.0,
+              "format": "double",
+              "type": "number"
+            },
+            "shape": {
+              "exclusiveMinimum": 0.0,
+              "format": "double",
+              "type": "number"
+            },
+            "type": {
+              "const": "pareto",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "shape",
+            "scale_ms"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "normal_mean_ms": {
+              "format": "double",
+              "minimum": 0.0,
+              "type": "number"
+            },
+            "normal_stddev_ms": {
+              "exclusiveMinimum": 0.0,
+              "format": "double",
+              "type": "number"
+            },
+            "pareto_scale_ms": {
+              "exclusiveMinimum": 0.0,
+              "format": "double",
+              "type": "number"
+            },
+            "pareto_shape": {
+              "exclusiveMinimum": 0.0,
+              "format": "double",
+              "type": "number"
+            },
+            "type": {
+              "const": "pareto-normal",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "pareto_shape",
+            "pareto_scale_ms",
+            "normal_mean_ms",
+            "normal_stddev_ms"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "max_ms": {
+              "format": "double",
+              "minimum": 0.0,
+              "type": "number"
+            },
+            "min_ms": {
+              "format": "double",
+              "minimum": 0.0,
+              "type": "number"
+            },
+            "type": {
+              "const": "uniform",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "min_ms",
+            "max_ms"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "DnsCase": {
+      "enum": [
+        "delay",
+        "timeout",
+        "truncated",
+        "refused",
+        "serv-fail",
+        "nx-domain",
+        "empty-answer",
+        "random-a"
+      ],
+      "type": "string"
+    },
+    "FaultSpec": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Adds one sampled delay to the selected direction. TCP applies it to the\nfirst non-empty traffic after activation; UDP applies it once to each\nselected datagram in an exchange.",
+          "properties": {
+            "distribution": {
+              "$ref": "#/$defs/DelayDistribution"
+            },
+            "flow": {
+              "$ref": "#/$defs/TrafficFlow"
+            },
+            "type": {
+              "const": "latency",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "flow",
+            "distribution"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Adds a probabilistic sampled delay. TCP evaluates it per data operation;\nUDP evaluates it once for each selected datagram in an exchange.",
+          "properties": {
+            "flow": {
+              "$ref": "#/$defs/TrafficFlow"
+            },
+            "max_delay_ms": {
+              "format": "double",
+              "minimum": 0.0,
+              "type": "number"
+            },
+            "min_delay_ms": {
+              "format": "double",
+              "minimum": 0.0,
+              "type": "number"
+            },
+            "probability": {
+              "format": "double",
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            "type": {
+              "const": "jitter",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "flow",
+            "min_delay_ms",
+            "max_delay_ms",
+            "probability"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Limits transferred bytes per second independently for each connection\nstream in the selected flow.",
+          "properties": {
+            "bytes_per_second": {
+              "format": "uint64",
+              "minimum": 1,
+              "type": "integer"
+            },
+            "flow": {
+              "$ref": "#/$defs/TrafficFlow"
+            },
+            "type": {
+              "const": "bandwidth",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "flow",
+            "bytes_per_second"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Leaves TCP operations pending until cancellation, or drops UDP\ndatagrams in the selected direction.",
+          "properties": {
+            "flow": {
+              "$ref": "#/$defs/TrafficFlow"
+            },
+            "type": {
+              "const": "blackhole",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "flow"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Resets a selected connection when traffic first uses the chosen flow.",
+          "properties": {
+            "flow": {
+              "$ref": "#/$defs/TrafficFlow"
+            },
+            "probability": {
+              "format": "double",
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            "type": {
+              "const": "connection-reset",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "flow",
+            "probability"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Alters DNS queries carried by a UDP proxy.",
+          "properties": {
+            "case": {
+              "$ref": "#/$defs/DnsCase"
+            },
+            "delay_ms": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "dns",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "case"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "HumanDuration": {
+      "description": "A validated, human-readable duration such as `250ms`, `30s`, or `2m`.",
+      "minLength": 1,
+      "type": "string"
+    },
+    "Phase": {
+      "additionalProperties": false,
+      "description": "A period during which one ordered set of network conditions is active.",
+      "properties": {
+        "duration": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HumanDuration"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Omit to keep this phase active until explicitly stopped."
+        },
+        "name": {
+          "description": "Human-readable phase name exposed in progress events.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "proxies": {
+          "description": "Fault chains applied to named proxies during this phase.",
+          "items": {
+            "$ref": "#/$defs/ProxyFaults"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "proxies"
+      ],
+      "type": "object"
+    },
+    "Proxy": {
+      "additionalProperties": false,
+      "properties": {
+        "listen": {
+          "description": "Local socket address clients connect or send datagrams to.",
+          "type": "string"
+        },
+        "name": {
+          "description": "Stable name used by phases to select this proxy.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "protocol": {
+          "$ref": "#/$defs/TransportProtocol",
+          "description": "Transport accepted and forwarded by this proxy."
+        },
+        "upstream": {
+          "description": "Remote socket address to which traffic is forwarded.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "protocol",
+        "listen",
+        "upstream"
+      ],
+      "type": "object"
+    },
+    "ProxyFaults": {
+      "additionalProperties": false,
+      "description": "The complete fault chain active on one named proxy during a phase.",
+      "properties": {
+        "faults": {
+          "description": "Ordered chain of faults applied to traffic on this proxy.",
+          "items": {
+            "$ref": "#/$defs/FaultSpec"
+          },
+          "type": "array"
+        },
+        "proxy": {
+          "description": "Name of a proxy declared by the containing run.",
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "proxy",
+        "faults"
+      ],
+      "type": "object"
+    },
+    "TrafficFlow": {
+      "oneOf": [
+        {
+          "const": "to-upstream",
+          "description": "Traffic sent by the client toward the upstream service.",
+          "type": "string"
+        },
+        {
+          "const": "to-client",
+          "description": "Traffic returned by the upstream service toward the client.",
+          "type": "string"
+        },
+        {
+          "const": "both",
+          "description": "Traffic in both directions.",
+          "type": "string"
+        }
+      ]
+    },
+    "TransportProtocol": {
+      "oneOf": [
+        {
+          "const": "tcp",
+          "description": "A connection-oriented byte stream.",
+          "type": "string"
+        },
+        {
+          "const": "udp",
+          "description": "Connectionless datagrams, including DNS traffic.",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "description": "Human-readable name used in progress, results, and journals.",
+      "minLength": 1,
+      "type": "string"
+    },
+    "phases": {
+      "description": "Ordered phases. Each begins when the previous phase ends.",
+      "items": {
+        "$ref": "#/$defs/Phase"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "proxies": {
+      "description": "Network entry points available throughout the run.",
+      "items": {
+        "$ref": "#/$defs/Proxy"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "schema_version": {
+      "const": 1,
+      "description": "Version of the serialized run format. The current value is `1`.",
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema_version",
+    "name",
+    "proxies",
+    "phases"
+  ],
+  "title": "Run",
+  "type": "object"
+}

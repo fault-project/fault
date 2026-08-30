@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "name": "database proxy",
+  "proxies": [
+    {
+      "name": "database",
+      "protocol": "tcp",
+      "listen": "127.0.0.1:15432",
+      "upstream": "127.0.0.1:5432"
+    }
+  ],
+  "phases": [
+    {
+      "name": "healthy",
+      "proxies": []
+    }
+  ]
+}

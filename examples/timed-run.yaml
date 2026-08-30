@@ -1,0 +1,29 @@
+schema_version: 1
+name: database connection instability
+
+proxies:
+  - name: database
+    protocol: tcp
+    listen: 127.0.0.1:15432
+    upstream: 127.0.0.1:5432
+
+phases:
+  - name: healthy
+    duration: 5s
+    proxies: []
+
+  - name: slow
+    duration: 10s
+    proxies:
+      - proxy: database
+        faults:
+          - type: latency
+            flow: both
+            distribution:
+              type: uniform
+              min_ms: 100.0
+              max_ms: 250.0
+
+  - name: recovered
+    duration: 5s
+    proxies: []

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Fault Network Injection"
+  short_description: "Design and run realistic network fault experiments"
+  default_prompt: "Use $fault-network-injection to design a focused network fault experiment for this system."

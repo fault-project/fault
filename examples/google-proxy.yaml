@@ -1,0 +1,19 @@
+schema_version: 1
+name: slow Google connection
+proxies:
+  - name: google
+    protocol: tcp
+    listen: 127.0.0.1:18080
+    upstream: www.google.com:443
+
+phases:
+  - name: slow responses
+    proxies:
+      - proxy: google
+        faults:
+          - type: latency
+            flow: to-client
+            distribution:
+              type: uniform
+              min_ms: 250.0
+              max_ms: 250.0

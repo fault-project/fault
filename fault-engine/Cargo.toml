@@ -1,0 +1,23 @@
+[package]
+name = "fault-engine"
+description = "Embeddable asynchronous TCP and UDP fault-injection engine"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+documentation.workspace = true
+homepage.workspace = true
+readme = "README.md"
+
+[dependencies]
+arc-swap = "1.8.2"
+chrono = "0.4.45"
+fault-model = { version = "1.0.0", path = "../fault-model" }
+rand = "0.9.2"
+rand_distr = "0.5.1"
+socket2 = "0.6.1"
+thiserror = "2.0.20"
+tokio = { version = "1.49.0", features = ["io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
+tokio-util = { version = "0.7.18", features = ["rt"] }
+uuid = { version = "1.21.0", features = ["v4"] }

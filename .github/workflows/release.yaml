@@ -1,0 +1,205 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  metadata:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.package.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - id: package
+        name: Read package version
+        run: |
+          version=$(cargo metadata --no-deps --format-version 1 \
+            | jq -r '.packages[] | select(.name == "fault-cli") | .version')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_REF" == refs/tags/* \
+            && "$GITHUB_REF_NAME" != "v$version" ]]; then
+            echo "Tag $GITHUB_REF_NAME does not match package version $version" >&2
+            exit 1
+          fi
+
+  binaries:
+    needs: metadata
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            artifact: fault-linux-x86_64
+            binary: target/prod-fast/fault
+            platform: linux-x86_64
+          - os: macos-15
+            artifact: fault-macos-aarch64
+            binary: target/prod-fast/fault
+            platform: macos-aarch64
+          - os: windows-latest
+            artifact: fault-windows-x86_64
+            binary: target/prod-fast/fault.exe
+            platform: windows-x86_64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --locked --profile prod-fast -p fault-cli
+      - name: Name release binary
+        if: runner.os != 'Windows'
+        run: |
+          cp "${{ matrix.binary }}" "fault-${{ matrix.platform }}"
+          chmod +x "fault-${{ matrix.platform }}"
+      - name: Name release binary
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: >-
+          Copy-Item -Path "${{ matrix.binary }}"
+          -Destination
+          "fault-${{ matrix.platform }}.exe"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: fault-${{ matrix.platform }}*
+          if-no-files-found: error
+
+  python-wheels:
+    needs: metadata
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            target: x86_64
+          - os: macos-15
+            target: universal2-apple-darwin
+          - os: windows-latest
+            target: x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - uses: PyO3/maturin-action@v1
+        with:
+          command: build
+          target: ${{ matrix.target }}
+          args: >-
+            --release --out dist
+            --manifest-path fault-python/Cargo.toml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fault-python-${{ matrix.target }}
+          path: dist/*.whl
+          if-no-files-found: error
+
+  python-sdist:
+    needs: metadata
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: >-
+            --out dist --manifest-path fault-python/Cargo.toml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fault-python-sdist
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  crates:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [metadata, binaries, python-wheels, python-sdist]
+    runs-on: ubuntu-24.04
+    environment: crates-io
+    permissions:
+      contents: read
+    env:
+      CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+      PACKAGE_VERSION: ${{ needs.metadata.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Publish Rust crates in dependency order
+        shell: bash
+        run: |
+          publish() {
+            local package="$1"
+            local attempt
+
+            for attempt in {1..6}; do
+              if cargo info "${package}@${PACKAGE_VERSION}" >/dev/null 2>&1; then
+                echo "${package} ${PACKAGE_VERSION} is already published"
+                return 0
+              fi
+
+              if cargo publish --locked --package "$package"; then
+                return 0
+              fi
+
+              if [[ "$attempt" == 6 ]]; then
+                return 1
+              fi
+
+              echo "Waiting for crates.io to index dependencies before retrying..."
+              sleep 15
+            done
+          }
+
+          publish fault-model
+          publish fault-engine
+          publish fault-cli
+
+  pypi:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [metadata, python-wheels, python-sdist]
+    runs-on: ubuntu-24.04
+    environment:
+      name: pypi
+      url: https://pypi.org/p/faultlib
+    permissions:
+      id-token: write
+    steps:
+      - name: Download Python distributions
+        uses: actions/download-artifact@v6
+        with:
+          pattern: fault-python-*
+          path: dist
+          merge-multiple: true
+      - name: Publish Python distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  github-release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [metadata, binaries, python-wheels, python-sdist, crates, pypi]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          path: artifacts
+      - name: Write SHA-256 checksums
+        working-directory: artifacts
+        run: |
+          checksum_file=$(mktemp)
+          while IFS= read -r -d '' file; do
+            checksum=$(sha256sum "$file" | cut -d ' ' -f1)
+            printf '%s  %s\n' "$checksum" "$(basename "$file")"
+          done < <(find . -type f -print0 | sort -z) > "$checksum_file"
+          mv "$checksum_file" SHA256SUMS
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/**/*
+            artifacts/SHA256SUMS
+          generate_release_notes: true

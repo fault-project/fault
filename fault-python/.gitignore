@@ -1,0 +1,3 @@
+/python/faultlib/*.so
+/python/faultlib/*.pyd
+**/__pycache__/

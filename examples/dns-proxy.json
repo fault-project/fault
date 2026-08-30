@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "name": "DNS failure",
+  "proxies": [
+    {
+      "name": "dns",
+      "protocol": "udp",
+      "listen": "127.0.0.1:15353",
+      "upstream": "1.1.1.1:53"
+    }
+  ],
+  "phases": [
+    {
+      "name": "resolver failure",
+      "proxies": [
+        {
+          "proxy": "dns",
+          "faults": [
+            {
+              "type": "dns",
+              "case": "serv-fail"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

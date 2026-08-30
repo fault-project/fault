@@ -1,0 +1,26 @@
+[package]
+name = "fault-cli"
+description = "Network-level fault injection CLI"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+documentation.workspace = true
+homepage.workspace = true
+readme = "README.md"
+
+[[bin]]
+name = "fault"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+chrono = "0.4"
+clap = { version = "4.5", features = ["derive"] }
+fault-engine = { version = "1.0.0", path = "../fault-engine" }
+fault-model = { version = "1.0.0", path = "../fault-model" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["fs", "io-util", "macros", "rt-multi-thread", "signal", "time"] }
+yaml_serde = "0.10"

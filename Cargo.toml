@@ -1,0 +1,50 @@
+[workspace]
+resolver = "2"
+members = ["fault-cli", "fault-engine", "fault-model", "fault-python"]
+default-members = ["fault-cli", "fault-engine", "fault-model", "fault-python"]
+
+[workspace.package]
+version = "1.0.0"
+edition = "2024"
+rust-version = "1.85"
+license = "Apache-2.0"
+repository = "https://github.com/fault-project/fault"
+documentation = "https://fault-project.com"
+homepage = "https://fault-project.com"
+readme = "README.md"
+
+[workspace.dependencies]
+anyhow = { version = "1", default-features = false }
+
+[profile.dev]
+opt-level = 0
+debug = 2
+debug-assertions = true
+overflow-checks = true
+incremental = true
+
+[profile.release]
+opt-level = 3
+lto = "thin"          # profile-level (allowed)
+codegen-units = 1
+panic = "abort"       # profile-level (allowed)
+incremental = false
+debug-assertions = false
+overflow-checks = false
+strip = "debuginfo"   # profile-level (allowed)
+
+[profile.prod-fast]
+inherits = "release"
+lto = "fat"
+opt-level = 3
+strip = "debuginfo"
+
+[profile.prod-small]
+inherits = "release"
+lto = "thin"
+opt-level = "z"
+strip = "symbols"
+
+[profile.release.package.fault-cli]
+opt-level = 3
+codegen-units = 1

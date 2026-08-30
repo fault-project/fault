@@ -1,0 +1,527 @@
+{
+  "$defs": {
+    "DelayRecord": {
+      "properties": {
+        "applications": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "total_delay_ms": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "applications",
+        "total_delay_ms"
+      ],
+      "type": "object"
+    },
+    "FaultRecord": {
+      "properties": {
+        "bandwidth_bytes_limited": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "blackhole_activations": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "connection_resets": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "dns_interventions": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "jitter": {
+          "$ref": "#/$defs/DelayRecord"
+        },
+        "latency": {
+          "$ref": "#/$defs/DelayRecord"
+        }
+      },
+      "required": [
+        "latency",
+        "jitter",
+        "bandwidth_bytes_limited",
+        "blackhole_activations",
+        "connection_resets",
+        "dns_interventions"
+      ],
+      "type": "object"
+    },
+    "FaultStatus": {
+      "properties": {
+        "average_jitter_ms": {
+          "format": "double",
+          "type": "number"
+        },
+        "average_latency_ms": {
+          "format": "double",
+          "type": "number"
+        },
+        "jitter_applications": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "latency_applications": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "latency_applications",
+        "average_latency_ms",
+        "jitter_applications",
+        "average_jitter_ms"
+      ],
+      "type": "object"
+    },
+    "RunOutcome": {
+      "oneOf": [
+        {
+          "properties": {
+            "type": {
+              "const": "success",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "message": {
+              "type": "string"
+            },
+            "type": {
+              "const": "failed",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "message"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "TcpStreamOutcome": {
+      "enum": [
+        "active",
+        "completed",
+        "upstream-connect-failed",
+        "transfer-failed",
+        "cancelled",
+        "fault-reset"
+      ],
+      "type": "string"
+    },
+    "TcpStreamRecord": {
+      "properties": {
+        "bytes_to_client": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "bytes_to_upstream": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "closed_at": {
+          "format": "date-time",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "failure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TransportFailure"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "faults": {
+          "$ref": "#/$defs/FaultRecord"
+        },
+        "opened_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "outcome": {
+          "$ref": "#/$defs/TcpStreamOutcome"
+        },
+        "peer": {
+          "type": "string"
+        },
+        "proxy": {
+          "type": "string"
+        },
+        "stream_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "upstream": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "stream_id",
+        "proxy",
+        "peer",
+        "upstream",
+        "opened_at",
+        "bytes_to_upstream",
+        "bytes_to_client",
+        "faults",
+        "outcome"
+      ],
+      "type": "object"
+    },
+    "TcpStreamStatus": {
+      "properties": {
+        "active": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "active_impacted": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "average_bytes_to_client": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "average_bytes_to_upstream": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "completed": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "failed": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "impacted": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "opened": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "active",
+        "opened",
+        "active_impacted",
+        "impacted",
+        "completed",
+        "failed",
+        "average_bytes_to_upstream",
+        "average_bytes_to_client"
+      ],
+      "type": "object"
+    },
+    "TransportFailure": {
+      "properties": {
+        "category": {
+          "$ref": "#/$defs/TransportFailureCategory"
+        },
+        "message": {
+          "type": "string"
+        },
+        "stage": {
+          "$ref": "#/$defs/TransportFailureStage"
+        }
+      },
+      "required": [
+        "stage",
+        "category",
+        "message"
+      ],
+      "type": "object"
+    },
+    "TransportFailureCategory": {
+      "enum": [
+        "dns-failed",
+        "connection-refused",
+        "timed-out",
+        "network-unreachable",
+        "connection-reset",
+        "broken-pipe",
+        "other"
+      ],
+      "type": "string"
+    },
+    "TransportFailureStage": {
+      "enum": [
+        "connect",
+        "transfer",
+        "exchange"
+      ],
+      "type": "string"
+    },
+    "TransportStatus": {
+      "properties": {
+        "dropped_records": {
+          "description": "Completed records omitted from the best-effort event stream.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "effects": {
+          "$ref": "#/$defs/FaultStatus"
+        },
+        "last_failure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TransportFailure"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tcp": {
+          "$ref": "#/$defs/TcpStreamStatus"
+        },
+        "udp": {
+          "$ref": "#/$defs/UdpExchangeStatus"
+        }
+      },
+      "required": [
+        "tcp",
+        "udp",
+        "effects",
+        "dropped_records"
+      ],
+      "type": "object"
+    },
+    "TransportSummary": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/TransportStatus"
+        },
+        "tcp_streams": {
+          "items": {
+            "$ref": "#/$defs/TcpStreamRecord"
+          },
+          "type": "array"
+        },
+        "udp_exchanges": {
+          "items": {
+            "$ref": "#/$defs/UdpExchangeRecord"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "status",
+        "tcp_streams",
+        "udp_exchanges"
+      ],
+      "type": "object"
+    },
+    "UdpExchangeOutcome": {
+      "enum": [
+        "active",
+        "completed",
+        "transfer-failed",
+        "cancelled",
+        "fault-dropped"
+      ],
+      "type": "string"
+    },
+    "UdpExchangeRecord": {
+      "properties": {
+        "completed_at": {
+          "format": "date-time",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "exchange_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "failure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TransportFailure"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "faults": {
+          "$ref": "#/$defs/FaultRecord"
+        },
+        "outcome": {
+          "$ref": "#/$defs/UdpExchangeOutcome"
+        },
+        "peer": {
+          "type": "string"
+        },
+        "proxy": {
+          "type": "string"
+        },
+        "request_bytes": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "response_bytes": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "started_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "upstream": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "exchange_id",
+        "proxy",
+        "peer",
+        "upstream",
+        "started_at",
+        "request_bytes",
+        "response_bytes",
+        "faults",
+        "outcome"
+      ],
+      "type": "object"
+    },
+    "UdpExchangeStatus": {
+      "properties": {
+        "active": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "active_impacted": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "average_request_bytes": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "average_response_bytes": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "completed": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "failed": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "impacted": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "started": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "active",
+        "started",
+        "active_impacted",
+        "impacted",
+        "completed",
+        "failed",
+        "average_request_bytes",
+        "average_response_bytes"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "completed_at": {
+      "description": "UTC instant at which execution ended.",
+      "format": "date-time",
+      "type": "string"
+    },
+    "outcome": {
+      "$ref": "#/$defs/RunOutcome",
+      "description": "Whether the run completed successfully or failed."
+    },
+    "run_name": {
+      "description": "Name of the completed run.",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1,
+      "description": "Version of the serialized result format. The current value is `1`.",
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "started_at": {
+      "description": "UTC instant at which execution began.",
+      "format": "date-time",
+      "type": "string"
+    },
+    "transport": {
+      "$ref": "#/$defs/TransportSummary",
+      "description": "Aggregate TCP and UDP observations collected during the run."
+    }
+  },
+  "required": [
+    "schema_version",
+    "run_name",
+    "started_at",
+    "completed_at",
+    "outcome",
+    "transport"
+  ],
+  "title": "RunResult",
+  "type": "object"
+}
