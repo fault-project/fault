@@ -108,4 +108,12 @@ pub(crate) struct RunOptions {
     /// Stream transport evidence as newline-delimited JSON.
     #[arg(long, value_name = "FILE")]
     pub(crate) journal: Option<PathBuf>,
+
+    /// Reload the run whenever FILE changes.
+    ///
+    /// A reload removes the active faults and restarts the phase timeline
+    /// from the first phase. Proxies restart only if their definitions
+    /// changed. An invalid file is reported and the current run continues.
+    #[arg(long)]
+    pub(crate) watch: bool,
 }

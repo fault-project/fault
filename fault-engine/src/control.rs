@@ -562,10 +562,10 @@ impl ControlSession {
     fn restore_previous(&mut self) {
         let Some(previous) = self.previous.take() else { return };
         for (name, faults) in previous {
-            if let Some(runtime) = self.runtimes.get(&name) {
-                if let Ok(prepared) = runtime.prepare_specs(&faults) {
-                    runtime.apply(prepared);
-                }
+            if let Some(runtime) = self.runtimes.get(&name)
+                && let Ok(prepared) = runtime.prepare_specs(&faults)
+            {
+                runtime.apply(prepared);
             }
         }
     }

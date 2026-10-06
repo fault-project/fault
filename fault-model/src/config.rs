@@ -26,7 +26,13 @@ impl TransportProtocol {
 }
 
 #[derive(
-    Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct Proxy {

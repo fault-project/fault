@@ -56,6 +56,7 @@ the same versioned Run model: routes at the top, fault chains in phases. A
 phase without `duration` remains active until stopped and must be last.
 
 The command accepts `--journal FILE` for bounded, best-effort NDJSON transport evidence,
+`--watch` to hot-reload the run when the file changes,
 `--output text|json`, and `--color auto|always|never`.
 
 Install the bundled network-injection skill for a coding agent:
@@ -120,5 +121,5 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace --locked
 ```
 
-The workspace follows current stable Rust and separately checks Rust 1.85 as
+The workspace follows current stable Rust and separately checks Rust 1.89 as
 its minimum supported version.

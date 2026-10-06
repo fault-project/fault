@@ -34,7 +34,7 @@ serde_json = "1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
-The minimum supported Rust version is 1.85.
+The minimum supported Rust version is 1.89.
 
 ## Start an engine
 

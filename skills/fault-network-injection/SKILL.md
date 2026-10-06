@@ -53,6 +53,11 @@ that reference rather than guessing.
 - Use `fault run FILE` for the CLI. It accepts one canonical YAML or JSON Run
   document containing routes and phases. Do not ask the user to choose another
   execution mode.
+- Add `--watch` to change a long-running experiment by editing the file,
+  for example a Kubernetes ConfigMap mounted as a directory (not `subPath`).
+  A reload removes the active faults and restarts from the first phase. Check
+  stdout for `config-reloaded` (with the file's `sha256`) or
+  `config-reload-failed`; after a failed reload the previous run continues.
 - Use the Rust library when embedding fault in a Rust system.
 - Use the Python binding when network phases participate in broader async
   orchestration, such as restarting a pod and then changing network

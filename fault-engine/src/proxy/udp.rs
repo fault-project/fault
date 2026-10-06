@@ -10,7 +10,7 @@ use fault_model::TransportFailureCategory;
 use fault_model::TransportFailureStage;
 use fault_model::TransportProtocol;
 use fault_model::UdpExchangeOutcome;
-use rand::Rng as _;
+use rand::RngExt as _;
 use tokio::net::UdpSocket;
 use tokio::task::JoinHandle;
 use tokio::task::JoinSet;

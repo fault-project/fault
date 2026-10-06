@@ -156,6 +156,11 @@ remain active concurrently in the same phase.
 - The interactive CLI dashboard is aggregate and human-oriented.
 - `--output json` provides machine-readable command output.
 - `--journal FILE` writes best-effort NDJSON transport evidence.
+- `--watch` reloads the run when the file changes. A reload removes the
+  active faults and restarts from the first phase. Proxies are rebound only
+  when the `proxies` section changes. Stdout receives `config-reloaded`
+  (with the file's `sha256`) or `config-reload-failed`; after a failed
+  reload the current run continues.
 - Evidence delivery is bounded: slow consumers lose records rather than
   slowing network traffic. Check `dropped_records`.
 - Rust owns the model, engine, scheduling, events, and errors.

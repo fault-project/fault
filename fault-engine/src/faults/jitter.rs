@@ -4,8 +4,7 @@ use std::task::Context;
 use std::task::Poll;
 
 use fault_model::TrafficFlow;
-use rand::Rng;
-use rand::SeedableRng;
+use rand::RngExt as _;
 use rand::rngs::SmallRng;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
@@ -45,7 +44,7 @@ impl JitterStream {
             probability,
             flow,
             metrics,
-            rng: SmallRng::from_os_rng(),
+            rng: rand::make_rng(),
             read_delay: None,
             write_delay: None,
             read_ready: false,

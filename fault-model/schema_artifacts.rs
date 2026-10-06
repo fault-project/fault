@@ -198,13 +198,12 @@ fn describe(schema: &Value) -> String {
     if let Some(items) = schema.get("items") {
         return format!("array of {}{}", describe(items), constraint(schema));
     }
-    if let Some(options) = schema["anyOf"].as_array() {
-        if let Some(value) = options
+    if let Some(options) = schema["anyOf"].as_array()
+        && let Some(value) = options
             .iter()
             .find(|option| option["type"].as_str() != Some("null"))
-        {
-            return format!("{} or null", describe(value));
-        }
+    {
+        return format!("{} or null", describe(value));
     }
     if let Some(types) = schema["type"].as_array() {
         let names = types

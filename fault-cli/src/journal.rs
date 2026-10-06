@@ -18,6 +18,8 @@ use crate::output::ProxyEndpoint;
 
 pub(crate) struct Journal {
     task: JoinHandle<anyhow::Result<BufWriter<tokio::fs::File>>>,
+    /// Transport streams of engines that replace the current one on reload.
+    sources: mpsc::UnboundedSender<mpsc::Receiver<TransportRecord>>,
 }
 
 impl Journal {
@@ -40,18 +42,36 @@ impl Journal {
                 )
             })?;
         let writer = BufWriter::new(file);
+        let (sources, next_sources) = mpsc::unbounded_channel();
         let task = tokio::spawn(write_records(
-            writer, name, receiver, proxies, faults,
+            writer,
+            name,
+            receiver,
+            next_sources,
+            proxies,
+            faults,
         ));
-        Ok(Self { task })
+        Ok(Self { task, sources })
+    }
+
+    /// Continue journaling from a replacement engine once the current
+    /// engine's transport stream has been drained.
+    pub(crate) fn follow(
+        &self,
+        receiver: mpsc::Receiver<TransportRecord>,
+    ) -> anyhow::Result<()> {
+        self.sources
+            .send(receiver)
+            .map_err(|_| anyhow::anyhow!("journal writer stopped unexpectedly"))
     }
 
     pub(crate) async fn finish(
         self,
         status: &TransportStatus,
     ) -> anyhow::Result<()> {
-        let mut writer =
-            self.task.await.context("journal writer task failed")??;
+        let Self { task, sources } = self;
+        drop(sources);
+        let mut writer = task.await.context("journal writer task failed")??;
         write_event(
             &mut writer,
             &JournalEvent::RunCompleted {
@@ -77,6 +97,7 @@ async fn write_records(
     mut writer: BufWriter<tokio::fs::File>,
     name: Option<String>,
     mut receiver: mpsc::Receiver<TransportRecord>,
+    mut sources: mpsc::UnboundedReceiver<mpsc::Receiver<TransportRecord>>,
     proxies: Vec<ProxyEndpoint>,
     faults: Vec<ProxyFaults>,
 ) -> anyhow::Result<BufWriter<tokio::fs::File>> {
@@ -105,7 +126,18 @@ async fn write_records(
     loop {
         tokio::select! {
             record = receiver.recv() => {
-                let Some(record) = record else { break };
+                let Some(record) = record else {
+                    // The engine stopped. Follow its replacement after a
+                    // reload, or finish once no replacement can arrive.
+                    writer.flush().await.context("failed to flush journal")?;
+                    match sources.recv().await {
+                        Some(next) => {
+                            receiver = next;
+                            continue;
+                        }
+                        None => break,
+                    }
+                };
                 let event = match record {
                     TransportRecord::TcpStream { stream } => {
                         JournalEvent::TcpStreamCompleted { stream }

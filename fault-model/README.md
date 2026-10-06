@@ -28,7 +28,7 @@ fault-model = "1"
 serde_json = "1"
 ```
 
-The minimum supported Rust version is 1.85.
+The minimum supported Rust version is 1.89.
 
 ## Read and validate a run
 

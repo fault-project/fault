@@ -78,6 +78,44 @@ The optional NDJSON journal records run boundaries and completed TCP streams
 or UDP exchanges. Evidence delivery is bounded and best effort so journal I/O
 cannot stall proxied traffic; `dropped_records` exposes any omitted records.
 
+## Hot reload
+
+```console
+fault run run.yaml --watch
+```
+
+With `--watch`, saving the run file replaces the running configuration:
+
+1. The active faults are removed.
+2. The phase timeline restarts from the new file's first phase.
+
+Proxies keep running and existing connections are preserved. The exception is
+a change to the `proxies` section: then the proxies are stopped and rebound.
+Saves that leave the content unchanged are ignored.
+
+Each reload writes a `config-reloaded` event to stdout. The event carries the
+SHA-256 of the loaded file. The `run-started` event carries the initial hash
+as `config_sha256`.
+
+A file that is invalid, or whose proxies cannot be bound, produces a
+`config-reload-failed` event and the current configuration stays in effect.
+If the proxies had already been stopped when the failure happened, the
+previous configuration is restarted from its first phase.
+
+When a journal is enabled, it continues across reloads.
+
+The file's directory is watched, so editors that save by renaming are
+followed. So are Kubernetes ConfigMap and Secret volumes, which update by
+swapping the `..data` symlink. Kubernetes never updates files mounted with
+`subPath`, so mount the whole ConfigMap as a directory instead:
+
+```yaml
+volumeMounts:
+  - name: fault-config
+    mountPath: /etc/fault
+args: ["--output", "json", "run", "/etc/fault/run.yaml", "--watch"]
+```
+
 ## Install the agent skill
 
 The executable bundles a concise network-injection skill for common coding

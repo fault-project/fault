@@ -788,12 +788,20 @@ phases:
           <span>application container<br><small>127.0.0.1:15432</small></span><span class="arrow">→</span><span>fault sidecar<br><small>pod network</small></span><span class="arrow">→</span><span>database service<br><small>database:5432</small></span>
         </div>
         <pre data-language="pod container"><code>command: [<span class="value">"fault"</span>]
-args: [<span class="value">"run"</span>, <span class="value">"/config/run.json"</span>, <span class="value">"--journal"</span>, <span class="value">"/records/run.ndjson"</span>]</code></pre>
+args: [<span class="value">"run"</span>, <span class="value">"/config/run.json"</span>, <span class="value">"--watch"</span>, <span class="value">"--journal"</span>, <span class="value">"/records/run.ndjson"</span>]</code></pre>
         <pre data-language="proxy.json excerpt"><code>{
   <span class="key">"listen"</span>: <span class="value">"0.0.0.0:15432"</span>,
   <span class="key">"upstream"</span>: <span class="value">"database.default.svc.cluster.local:5432"</span>
 }</code></pre>
         <p>Mount configuration read-only. Mount a writable volume only when using <code>--journal</code>; otherwise let the dashboard or JSON output go to the container logs. Configure the application—not the cluster—to use the sidecar listener.</p>
+        <p>With <code>--watch</code>, the sidecar reloads when the ConfigMap is edited: <code>kubectl apply</code> changes the experiment without restarting the pod.</p>
+        <ul>
+          <li>Each reload removes the active faults and restarts the phases from the beginning.</li>
+          <li>Open connections survive unless the <code>proxies</code> section changed.</li>
+          <li>Each reload writes a <code>config-reloaded</code> event with the file’s SHA-256 to the container logs.</li>
+          <li>An invalid edit produces <code>config-reload-failed</code> and the current run continues.</li>
+        </ul>
+        <p>Mount the ConfigMap as a directory. Kubernetes never updates files mounted with <code>subPath</code>.</p>
 
         <div class="callout"><p><strong>Avoid routing loops.</strong> The upstream address must resolve to the real dependency, never back to fault’s listener. DNS experiments also require the client to send queries to the configured UDP listener; fault does not replace the operating system resolver automatically.</p></div>
       </section>

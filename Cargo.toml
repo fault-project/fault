@@ -1,12 +1,12 @@
 [workspace]
-resolver = "2"
+resolver = "3"
 members = ["fault-cli", "fault-engine", "fault-model", "fault-python"]
 default-members = ["fault-cli", "fault-engine", "fault-model", "fault-python"]
 
 [workspace.package]
-version = "1.0.0"
+version = "1.1.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.89"
 license = "Apache-2.0"
 repository = "https://github.com/fault-project/fault"
 documentation = "https://fault-project.com"

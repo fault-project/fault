@@ -27,6 +27,23 @@ pub(crate) enum OutputEvent {
     RunStarted {
         run_name: String,
         endpoints: Vec<String>,
+        config_sha256: String,
+    },
+    /// A changed configuration replaced the running one. Faults were
+    /// removed and the phase timeline restarted from its first phase.
+    ConfigReloaded {
+        path: String,
+        sha256: String,
+        run_name: String,
+        /// Whether proxies were rebound because their definitions changed.
+        proxies_restarted: bool,
+        endpoints: Vec<String>,
+    },
+    /// A changed configuration was rejected; the current run continues.
+    ConfigReloadFailed {
+        path: String,
+        sha256: Option<String>,
+        message: String,
     },
     RunProgress {
         progress: RunProgress,
@@ -108,10 +125,40 @@ impl Output {
 
     fn render_text(&self, event: &OutputEvent) -> String {
         match event {
-            OutputEvent::RunStarted { run_name, endpoints } => {
+            OutputEvent::RunStarted { run_name, endpoints, .. } => {
                 format!(
                     "Run \u{201c}{run_name}\u{201d} started with proxy at {}",
                     endpoints.join(", ")
+                )
+            }
+            OutputEvent::ConfigReloaded {
+                path,
+                sha256,
+                run_name,
+                proxies_restarted,
+                endpoints,
+            } => {
+                let mut message = format!(
+                    "Reloaded {path} (sha256 {sha256}): run \u{201c}{run_name}\u{201d} restarted from its first phase"
+                );
+                if *proxies_restarted {
+                    message.push_str(&format!(
+                        " with proxy at {}",
+                        endpoints.join(", ")
+                    ));
+                }
+                self.paint("36", &message)
+            }
+            OutputEvent::ConfigReloadFailed { path, sha256, message } => {
+                let revision = sha256
+                    .as_ref()
+                    .map(|sha256| format!(" (sha256 {sha256})"))
+                    .unwrap_or_default();
+                self.paint(
+                    "33",
+                    &format!(
+                        "Ignored change to {path}{revision}: {message}; the current run continues"
+                    ),
                 )
             }
             OutputEvent::RunProgress {
@@ -323,7 +370,7 @@ fn format_count(value: u64) -> String {
     let digits = value.to_string();
     let mut formatted = String::with_capacity(digits.len() + digits.len() / 3);
     for (index, character) in digits.chars().enumerate() {
-        if index > 0 && (digits.len() - index) % 3 == 0 {
+        if index > 0 && (digits.len() - index).is_multiple_of(3) {
             formatted.push(',');
         }
         formatted.push(character);
@@ -373,5 +420,35 @@ mod tests {
         assert!(rendered.contains("slow connection   2 of 3"));
         assert!(rendered.contains("00:07 remaining of 00:10"));
         assert!(rendered.contains("TCP  4 active"));
+    }
+
+    #[test]
+    fn reload_events_name_the_revision() {
+        let output = Output::new(OutputFormat::Text, ColorChoice::Never);
+        let reloaded = output
+            .render(&OutputEvent::ConfigReloaded {
+                path: "run.yaml".into(),
+                sha256: "abc123".into(),
+                run_name: "outage".into(),
+                proxies_restarted: true,
+                endpoints: vec!["tcp://127.0.0.1:8080".into()],
+            })
+            .unwrap();
+        assert_eq!(
+            reloaded,
+            "Reloaded run.yaml (sha256 abc123): run \u{201c}outage\u{201d} restarted from its first phase with proxy at tcp://127.0.0.1:8080"
+        );
+
+        let json = Output::new(OutputFormat::Json, ColorChoice::Never)
+            .render(&OutputEvent::ConfigReloadFailed {
+                path: "run.yaml".into(),
+                sha256: None,
+                message: "missing".into(),
+            })
+            .unwrap();
+        assert_eq!(
+            json,
+            r#"{"type":"config-reload-failed","path":"run.yaml","sha256":null,"message":"missing"}"#
+        );
     }
 }
