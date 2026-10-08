@@ -1,6 +1,6 @@
 {
   "name": "faultlib",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Programmable network fault injection",
   "keywords": ["fault-injection", "chaos-engineering", "network", "proxy", "testing"],
   "homepage": "https://fault-project.com",

@@ -16,6 +16,6 @@ name = "_fault"
 crate-type = ["cdylib"]
 
 [dependencies]
-fault-binding = { version = "1.2.0", path = "../fault-binding" }
+fault-binding = { version = "1.2.1", path = "../fault-binding" }
 pyo3 = { version = "0.29.0", features = ["abi3-py314", "extension-module"] }
 pyo3-async-runtimes = { version = "0.29.0", features = ["tokio-runtime"] }
