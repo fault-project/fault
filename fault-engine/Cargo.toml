@@ -13,7 +13,7 @@ readme = "README.md"
 [dependencies]
 arc-swap = "1.8.2"
 chrono = "0.4.45"
-fault-model = { version = "1.1.0", path = "../fault-model" }
+fault-model = { version = "1.2.0", path = "../fault-model" }
 rand = "0.10"
 rand_distr = "0.6"
 socket2 = "0.6.1"

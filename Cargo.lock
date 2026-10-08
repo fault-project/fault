@@ -276,7 +276,7 @@ dependencies = [
 
 [[package]]
 name = "fault-binding"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "fault-engine",
  "fault-model",
@@ -288,7 +288,7 @@ dependencies = [
 
 [[package]]
 name = "fault-cli"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -305,7 +305,7 @@ dependencies = [
 
 [[package]]
 name = "fault-engine"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "arc-swap",
  "chrono",
@@ -321,7 +321,7 @@ dependencies = [
 
 [[package]]
 name = "fault-model"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "chrono",
  "humantime",
@@ -335,7 +335,7 @@ dependencies = [
 
 [[package]]
 name = "fault-python"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "fault-binding",
  "pyo3",
@@ -344,7 +344,7 @@ dependencies = [
 
 [[package]]
 name = "fault-typescript"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "fault-binding",
  "napi",
