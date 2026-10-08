@@ -221,6 +221,10 @@ class FaultStatus:
     average_latency_ms: float
     jitter_applications: int
     average_jitter_ms: float
+    bandwidth_bytes_limited: int
+    blackhole_activations: int
+    connection_resets: int
+    dns_interventions: int
 
     @classmethod
     def from_json(cls, value: JsonObject) -> Self:

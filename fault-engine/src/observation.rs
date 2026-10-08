@@ -78,9 +78,13 @@ impl TransportMetrics {
 
     pub(crate) fn record_bandwidth(&self, bytes: usize) {
         self.mark_impacted();
-        self.bandwidth_bytes_limited.fetch_add(bytes as u64, Ordering::Relaxed);
+        let bytes = bytes as u64;
+        self.bandwidth_bytes_limited.fetch_add(bytes, Ordering::Relaxed);
+        self.live.bandwidth_bytes_limited.fetch_add(bytes, Ordering::Relaxed);
     }
 
+    /// Called on every blocked poll or dropped datagram. Only the first call
+    /// per direction counts, so live totals match the per-record value.
     pub(crate) fn record_blackhole(&self, to_upstream: bool) {
         self.mark_impacted();
         let flag = if to_upstream {
@@ -88,17 +92,24 @@ impl TransportMetrics {
         } else {
             &self.blackhole_to_client
         };
-        flag.store(true, Ordering::Relaxed);
+        if !flag.swap(true, Ordering::Relaxed) {
+            self.live.blackhole_activations.fetch_add(1, Ordering::Relaxed);
+        }
     }
 
+    /// Only the first reset of a stream counts, so live totals match the
+    /// per-record value.
     pub(crate) fn record_reset(&self) {
         self.mark_impacted();
-        self.reset_injected.store(true, Ordering::Relaxed);
+        if !self.reset_injected.swap(true, Ordering::Relaxed) {
+            self.live.connection_resets.fetch_add(1, Ordering::Relaxed);
+        }
     }
 
     pub(crate) fn record_dns_intervention(&self) {
         self.mark_impacted();
         self.dns_interventions.fetch_add(1, Ordering::Relaxed);
+        self.live.dns_interventions.fetch_add(1, Ordering::Relaxed);
     }
 
     pub(crate) fn record_bytes_to_upstream(&self, bytes: usize) {
@@ -185,6 +196,10 @@ struct LiveMetrics {
     latency_delay_micros: AtomicU64,
     jitter_applications: AtomicU64,
     jitter_delay_micros: AtomicU64,
+    bandwidth_bytes_limited: AtomicU64,
+    blackhole_activations: AtomicU64,
+    connection_resets: AtomicU64,
+    dns_interventions: AtomicU64,
 }
 
 impl LiveMetrics {
@@ -289,6 +304,18 @@ impl LiveMetrics {
                     self.jitter_delay_micros.load(Ordering::Relaxed),
                     jitter_applications,
                 ),
+                bandwidth_bytes_limited: self
+                    .bandwidth_bytes_limited
+                    .load(Ordering::Relaxed),
+                blackhole_activations: self
+                    .blackhole_activations
+                    .load(Ordering::Relaxed),
+                connection_resets: self
+                    .connection_resets
+                    .load(Ordering::Relaxed),
+                dns_interventions: self
+                    .dns_interventions
+                    .load(Ordering::Relaxed),
             },
             dropped_records: self.dropped_records.load(Ordering::Relaxed),
             last_failure: self.last_failure.load_full().as_deref().cloned(),

@@ -203,6 +203,7 @@ async fn returns_an_injected_dns_error_from_a_udp_proxy() {
     let summary = running.shutdown().await.unwrap();
     assert_eq!(summary.udp_exchanges.len(), 1);
     assert_eq!(summary.udp_exchanges[0].faults.dns_interventions, 1);
+    assert_eq!(summary.status.effects.dns_interventions, 1);
     assert!(length >= 12);
 }
 
@@ -240,6 +241,7 @@ async fn applies_chained_transport_faults_to_a_udp_exchange() {
     assert_eq!(exchange.faults.latency.applications, 1);
     assert_eq!(exchange.faults.jitter.applications, 1);
     assert_eq!(exchange.faults.blackhole_activations, 1);
+    assert_eq!(summary.status.effects.blackhole_activations, 1);
     assert!(matches!(
         &exchange.outcome,
         fault_model::UdpExchangeOutcome::FaultDropped
@@ -616,6 +618,87 @@ async fn blackholes_client_bound_traffic_until_shutdown() {
     echo_task.abort();
 }
 
+async fn wait_for_effects(
+    running: &fault_engine::RunningEngine,
+    reached: impl Fn(&fault_model::FaultStatus) -> bool,
+) {
+    timeout(Duration::from_secs(1), async {
+        while !reached(&running.transport_status().effects) {
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .expect("live fault effects were not reported");
+}
+
+#[tokio::test]
+async fn live_status_counts_each_blackholed_direction_once() {
+    let (upstream, echo_task) = start_echo_server().await;
+    let mut config = test_routes(upstream.to_string());
+    config.proxies[0].faults.push(blackhole(TrafficFlow::ToUpstream));
+    let running =
+        test_engine(config).retain_transport_history().start().await.unwrap();
+
+    let mut first =
+        TcpStream::connect(running.endpoints().tcp[0]).await.unwrap();
+    first.write_all(b"a").await.unwrap();
+    wait_for_effects(&running, |effects| effects.blackhole_activations == 1)
+        .await;
+
+    // Further blocked polls on the same direction must not count again.
+    for _ in 0..5 {
+        first.write_all(b"more").await.unwrap();
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+    assert_eq!(running.transport_status().effects.blackhole_activations, 1);
+
+    let mut second =
+        TcpStream::connect(running.endpoints().tcp[0]).await.unwrap();
+    second.write_all(b"b").await.unwrap();
+    wait_for_effects(&running, |effects| effects.blackhole_activations == 2)
+        .await;
+
+    let transport = running.shutdown().await.unwrap();
+    let recorded: u64 = transport
+        .tcp_streams
+        .iter()
+        .map(|stream| stream.faults.blackhole_activations)
+        .sum();
+    assert_eq!(transport.status.effects.blackhole_activations, recorded);
+    assert_eq!(recorded, 2);
+    echo_task.abort();
+}
+
+#[tokio::test]
+async fn live_status_counts_reset_connections() {
+    let (upstream, echo_task) = start_echo_server().await;
+    let mut config = test_routes(upstream.to_string());
+    config.proxies[0].faults.push(connection_reset(TrafficFlow::Both, 1.0));
+    let running =
+        test_engine(config).retain_transport_history().start().await.unwrap();
+
+    for expected in 1..=2 {
+        let mut client =
+            TcpStream::connect(running.endpoints().tcp[0]).await.unwrap();
+        client.write_all(b"a").await.unwrap();
+        expect_connection_reset(&mut client).await;
+        wait_for_effects(&running, |effects| {
+            effects.connection_resets == expected
+        })
+        .await;
+    }
+
+    let transport = running.shutdown().await.unwrap();
+    let recorded: u64 = transport
+        .tcp_streams
+        .iter()
+        .map(|stream| stream.faults.connection_resets)
+        .sum();
+    assert_eq!(transport.status.effects.connection_resets, recorded);
+    assert_eq!(recorded, 2);
+    echo_task.abort();
+}
+
 #[tokio::test]
 async fn resets_connections_on_upstream_bound_traffic() {
     let (upstream, echo_task) = start_echo_server().await;
@@ -774,10 +857,19 @@ async fn chains_different_fault_types() {
     // independently introduced delays can overlap rather than simply add.
     assert!(started.elapsed() >= Duration::from_millis(240));
 
+    // Latency and bandwidth applied together are both visible live.
+    let effects = running.transport_status().effects;
+    assert_eq!(effects.latency_applications, 1);
+    assert_eq!(effects.bandwidth_bytes_limited, payload.len() as u64);
+
     let transport = running.shutdown().await.unwrap();
     let connection = &transport.tcp_streams[0];
     assert_eq!(connection.faults.latency.applications, 1);
     assert_eq!(connection.faults.bandwidth_bytes_limited, payload.len() as u64);
+    assert_eq!(
+        transport.status.effects.bandwidth_bytes_limited,
+        connection.faults.bandwidth_bytes_limited
+    );
     echo_task.abort();
 }
 

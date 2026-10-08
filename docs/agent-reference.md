@@ -156,6 +156,11 @@ remain active concurrently in the same phase.
 - The interactive CLI dashboard is aggregate and human-oriented.
 - `--output json` provides machine-readable command output.
 - `--journal FILE` writes best-effort NDJSON transport evidence.
+- `transport.effects` in `--output json` progress and results counts what
+  each fault actually did, as cumulative run-wide counters:
+  `latency_applications`, `jitter_applications`, `bandwidth_bytes_limited`,
+  `blackhole_activations`, `connection_resets`, and `dns_interventions`. Diff
+  them across phase boundaries to prove a fault fired without a journal.
 - `--watch` reloads the run when the file changes. A reload removes the
   active faults and restarts from the first phase. Proxies are rebound only
   when the `proxies` section changes. Stdout receives `config-reloaded`

@@ -86,6 +86,20 @@ pub struct FaultStatus {
     pub average_latency_ms: f64,
     pub jitter_applications: u64,
     pub average_jitter_ms: f64,
+    /// Bytes paced by bandwidth faults, summed over every stream and
+    /// exchange.
+    #[serde(default)]
+    pub bandwidth_bytes_limited: u64,
+    /// Traffic directions blackholed, summed over every stream and exchange.
+    /// Each direction of a stream or exchange counts at most once.
+    #[serde(default)]
+    pub blackhole_activations: u64,
+    /// Streams reset by a connection-reset fault.
+    #[serde(default)]
+    pub connection_resets: u64,
+    /// DNS queries altered by a DNS fault.
+    #[serde(default)]
+    pub dns_interventions: u64,
 }
 
 #[derive(

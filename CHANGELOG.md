@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `TransportStatus.effects` reports `bandwidth_bytes_limited`,
+  `blackhole_activations`, `connection_resets`, and `dns_interventions`
+  alongside the latency and jitter counters. They are cumulative run-wide
+  totals that use the same names and meaning as the per-record
+  `FaultRecord`, so each equals the sum over all streams and exchanges. They
+  update live when a fault takes effect, so `run-progress` on stdout proves
+  every fault type fired without a journal. Each blackholed direction and each
+  reset stream counts once, however many times the fault blocks it.
+
 ## 1.1.0 - 2026-10-06
 
 ### Added

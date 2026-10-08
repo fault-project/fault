@@ -67,6 +67,34 @@
           "format": "double",
           "type": "number"
         },
+        "bandwidth_bytes_limited": {
+          "default": 0,
+          "description": "Bytes paced by bandwidth faults, summed over every stream and\nexchange.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "blackhole_activations": {
+          "default": 0,
+          "description": "Traffic directions blackholed, summed over every stream and exchange.\nEach direction of a stream or exchange counts at most once.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "connection_resets": {
+          "default": 0,
+          "description": "Streams reset by a connection-reset fault.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "dns_interventions": {
+          "default": 0,
+          "description": "DNS queries altered by a DNS fault.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
         "jitter_applications": {
           "format": "uint64",
           "minimum": 0,
