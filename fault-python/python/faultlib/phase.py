@@ -83,15 +83,17 @@ class PhaseTransition:
 
 
 class Schedule:
-    """A transactional schedule of immutable phase transitions."""
+    """A transactional schedule of immutable phase transitions.
+
+    Leaving the ``async with`` block closes the schedule and restores the
+    faults that were active when it began.
+    """
 
     def __init__(self, engine: Engine):
-        self._engine = engine
-        self._active = False
+        self._native = engine._native
 
     async def __aenter__(self) -> Self:
-        await self._engine._native.begin_schedule()
-        self._active = True
+        await self._native.begin_schedule()
         return self
 
     async def __aexit__(
@@ -100,32 +102,29 @@ class Schedule:
         _exc_value: BaseException | None,
         _traceback: TracebackType | None,
     ) -> None:
-        if self._active and self._engine.alive():
-            try:
-                await self._engine._native.end_schedule()
-            finally:
-                self._active = False
+        await self._native.end_schedule()
 
     def alive(self) -> bool:
-        return self._active and self._engine.alive()
+        """Whether a phase schedule is active on the engine."""
+        return self._native.schedule_active()
 
     async def next_transition(self) -> PhaseTransition | None:
         """Wait for the next phase lifecycle transition."""
-        phase = await self._engine._native.schedule_next_transition()
+        transition = await self._native.schedule_next_transition()
         return (
             None
-            if phase is None
-            else PhaseTransition.from_json(json.loads(phase))
+            if transition is None
+            else PhaseTransition.from_json(json.loads(transition))
         )
 
     async def add_phase(
         self, name: str, faults: FaultsByProxy, *, duration: str | None = None
     ) -> Phase:
-        value = await self._engine._native.schedule_add_phase(
-            name, duration, json.dumps(_proxy_faults(faults))
+        return _phase(
+            await self._native.schedule_add_phase(
+                name, duration, json.dumps(_proxy_faults(faults))
+            )
         )
-        phase = Phase.from_json(json.loads(value))
-        return phase
 
     async def modify_phase(
         self,
@@ -135,44 +134,33 @@ class Schedule:
         duration: str | None,
         faults: FaultsByProxy,
     ) -> Phase:
-        value = await self._engine._native.schedule_modify_phase(
-            str(phase.id), name, duration, json.dumps(_proxy_faults(faults))
-        )
-        phase = Phase.from_json(json.loads(value))
-        return phase
-
-    async def delete_phase(self, phase: Phase) -> Phase:
-        return (await self._transition("delete", phase))[0]
-
-    async def start_phase(self, phase: Phase) -> tuple[Phase, ...]:
-        return await self._transition("start", phase)
-
-    async def stop_phase(self, phase: Phase) -> tuple[Phase, ...]:
-        return await self._transition("stop", phase)
-
-    async def move_phase(self, phase: Phase, position: int) -> Phase:
-        self._ensure_active()
-        if position < 0:
-            raise ValueError("phase position cannot be negative")
-        values = json.loads(
-            await self._engine._native.schedule_move_phase(
-                str(phase.id), position
+        return _phase(
+            await self._native.schedule_modify_phase(
+                str(phase.id), name, duration, json.dumps(_proxy_faults(faults))
             )
         )
-        return Phase.from_json(values[0])
 
-    async def _transition(
-        self, operation: str, phase: Phase
-    ) -> tuple[Phase, ...]:
-        self._ensure_active()
-        method = getattr(self._engine._native, f"schedule_{operation}_phase")
-        values = json.loads(await method(str(phase.id)))
-        phases = tuple(Phase.from_json(value) for value in values)
-        return phases
+    async def delete_phase(self, phase: Phase) -> Phase:
+        return _phase(await self._native.schedule_delete_phase(str(phase.id)))
 
-    def _ensure_active(self) -> None:
-        if not self._active:
-            raise RuntimeError("phase schedule is not active")
+    async def start_phase(self, phase: Phase) -> tuple[Phase, ...]:
+        return _phases(await self._native.schedule_start_phase(str(phase.id)))
+
+    async def stop_phase(self, phase: Phase) -> tuple[Phase, ...]:
+        return _phases(await self._native.schedule_stop_phase(str(phase.id)))
+
+    async def move_phase(self, phase: Phase, position: int) -> Phase:
+        return _phase(
+            await self._native.schedule_move_phase(str(phase.id), position)
+        )
+
+
+def _phase(value: str) -> Phase:
+    return Phase.from_json(json.loads(value))
+
+
+def _phases(value: str) -> tuple[Phase, ...]:
+    return tuple(Phase.from_json(item) for item in json.loads(value))
 
 
 def _proxy_faults(faults: FaultsByProxy) -> list[JsonObject]:

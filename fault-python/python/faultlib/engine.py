@@ -1,20 +1,17 @@
-import asyncio
 import json
 from types import TracebackType
 from typing import Self
 
 from ._fault import Engine as _Engine
 from .config import FaultSpec
-from .events import EngineEvent, StatusEvent, TcpStreamEvent, UdpExchangeEvent
+from .events import EngineEvent, engine_event_from_json
 from .phase import Schedule
 from .run import ProxyFaults, Run, RunProgress, RunResult
 from .transport import (
     Endpoints,
-    TcpStreamRecord,
     TransportRecord,
     TransportStatus,
     TransportSummary,
-    UdpExchangeRecord,
     transport_record_from_json,
 )
 
@@ -28,11 +25,8 @@ class Engine:
     schemas. Runtime results are typed Python objects.
     """
 
-    def __init__(self, run: Run, *, event_capacity: int = 1024):
+    def __init__(self, run: Run, *, event_capacity: int | None = None):
         self._native = _Engine(json.dumps(run), event_capacity)
-        self._alive = False
-        self._endpoints: Endpoints | None = None
-        self._summary: TransportSummary | None = None
 
     async def __aenter__(self) -> Self:
         await self.start()
@@ -48,19 +42,22 @@ class Engine:
 
     @property
     def endpoints(self) -> Endpoints:
-        """The bound endpoints, available after the engine starts."""
-        if self._endpoints is None:
-            raise RuntimeError("the engine has not been started")
-        return self._endpoints
+        """The bound endpoints, available while the engine runs."""
+        return Endpoints.from_json(json.loads(self._native.endpoints()))
 
     @property
     def summary(self) -> TransportSummary | None:
         """The final transport summary, available after shutdown."""
-        return self._summary
+        summary = self._native.summary()
+        return (
+            None
+            if summary is None
+            else TransportSummary.from_json(json.loads(summary))
+        )
 
     def alive(self) -> bool:
-        """Whether this wrapper currently owns a running engine."""
-        return self._alive
+        """Whether the engine is started and not yet shut down."""
+        return self._native.alive()
 
     def schedule(self) -> Schedule:
         """Create a mutable schedule of immutable phase transitions."""
@@ -68,11 +65,7 @@ class Engine:
 
     async def start(self) -> Endpoints:
         """Bind every configured proxy and return its actual endpoints."""
-        self._endpoints = Endpoints.from_json(
-            json.loads(await self._native.start())
-        )
-        self._alive = True
-        return self._endpoints
+        return Endpoints.from_json(json.loads(await self._native.start()))
 
     async def set_faults(self, proxy: str, faults: list[FaultSpec]) -> None:
         """Replace the active fault chain for one named proxy."""
@@ -118,34 +111,21 @@ class Engine:
         )
 
     async def next_event(
-        self, *, status_interval: float = 2.0
+        self, *, status_interval: float | None = None
     ) -> EngineEvent | None:
-        """Return the next transport record, or a periodic status event."""
-        if status_interval <= 0:
-            raise ValueError("status_interval must be greater than zero")
+        """Return the next transport record, or a periodic status event.
 
-        try:
-            async with asyncio.timeout(status_interval):
-                record = await self.next_record()
-        except TimeoutError:
-            return StatusEvent(await self.status())
-
-        if record is None:
-            self._alive = False
-            return None
-        match record:
-            case TcpStreamRecord():
-                return TcpStreamEvent(record)
-            case UdpExchangeRecord():
-                return UdpExchangeEvent(record)
+        A status event is returned when no record completes within
+        ``status_interval`` seconds (two by default). Returns ``None`` once
+        the engine stops.
+        """
+        event = await self._native.next_event(status_interval)
+        return (
+            None if event is None else engine_event_from_json(json.loads(event))
+        )
 
     async def shutdown(self) -> TransportSummary:
         """Stop all proxies and return the final transport summary."""
-        try:
-            summary = TransportSummary.from_json(
-                json.loads(await self._native.shutdown())
-            )
-            self._summary = summary
-            return summary
-        finally:
-            self._alive = False
+        return TransportSummary.from_json(
+            json.loads(await self._native.shutdown())
+        )

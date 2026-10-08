@@ -169,8 +169,9 @@ remain active concurrently in the same phase.
 - Evidence delivery is bounded: slow consumers lose records rather than
   slowing network traffic. Check `dropped_records`.
 - Rust owns the model, engine, scheduling, events, and errors.
-- Python 3.14+ exposes those Rust semantics through PyO3 for broader async
-  experiments; it is not on the traffic hot path.
+- Python 3.14+ (PyO3) and TypeScript on Node.js 24+, Bun, or Deno (napi-rs)
+  expose those Rust semantics through the shared `fault-binding` handle for
+  broader async experiments; neither is on the traffic hot path.
 
 ## Canonical contracts
 
@@ -178,6 +179,13 @@ remain active concurrently in the same phase.
 - [Run progress schema](schemas/run-progress.schema.json)
 - [Run result schema](schemas/run-result.schema.json)
 - [Journal event schema](schemas/journal-event.schema.json)
+- Binding values: [endpoints](schemas/endpoints.schema.json),
+  [engine events](schemas/engine-event.schema.json),
+  [phases](schemas/phase.schema.json),
+  [phase transitions](schemas/phase-transition.schema.json),
+  [transport records](schemas/transport-record.schema.json),
+  [status](schemas/transport-status.schema.json), and
+  [summaries](schemas/transport-summary.schema.json)
 
 When exact fields or numeric constraints matter, use these generated schemas
 as the source of truth.

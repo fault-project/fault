@@ -1,4 +1,8 @@
-use fault_model::{JournalEvent, Run, RunProgress, RunResult};
+use fault_model::{
+    BoundEndpoints, ControlledPhase, EngineEvent, JournalEvent,
+    PhaseTransition, Run, RunProgress, RunResult, TransportRecord,
+    TransportStatus, TransportSummary,
+};
 use schemars::schema_for;
 use serde_json::Value;
 use std::collections::BTreeSet;
@@ -9,6 +13,13 @@ pub fn schemas() -> Vec<(&'static str, Value)> {
         ("run-progress.schema.json", value(schema_for!(RunProgress))),
         ("run-result.schema.json", value(schema_for!(RunResult))),
         ("journal-event.schema.json", value(schema_for!(JournalEvent))),
+        ("endpoints.schema.json", value(schema_for!(BoundEndpoints))),
+        ("phase.schema.json", value(schema_for!(ControlledPhase))),
+        ("phase-transition.schema.json", value(schema_for!(PhaseTransition))),
+        ("engine-event.schema.json", value(schema_for!(EngineEvent))),
+        ("transport-record.schema.json", value(schema_for!(TransportRecord))),
+        ("transport-status.schema.json", value(schema_for!(TransportStatus))),
+        ("transport-summary.schema.json", value(schema_for!(TransportSummary))),
     ]
 }
 
@@ -44,8 +55,8 @@ code{{font-family:ui-monospace,SFMono-Regular,monospace}} pre{{overflow:auto;bac
 .required{{color:#9a4100;font-weight:700}} .muted{{color:var(--muted)}} details{{background:var(--panel);padding:.8rem 1rem;margin:.7rem 0;border:1px solid var(--line)}} summary{{cursor:pointer;font-weight:700}}
 </style></head><body><main>
 <span class="eyebrow">Generated reference</span><h1>fault, field by field</h1>
-<p class="lede">The exact wire format for run files, live progress, completed results, and journal records. This page is generated from the Rust model beside the JSON Schemas; do not edit it by hand.</p>
-<nav><a href="index.html">Guide</a><button class="theme-toggle" id="theme-toggle" type="button">theme</button><a href="#run-schema-json">Run files</a><a href="#fault-compatibility">Fault compatibility</a><a href="#run-progress-schema-json">Progress</a><a href="#run-result-schema-json">Results</a><a href="#journal-event-schema-json">Journal</a></nav>
+<p class="lede">The exact wire format for run files, live progress, completed results, journal records, and the values returned by the language bindings. This page is generated from the Rust model beside the JSON Schemas; do not edit it by hand.</p>
+<nav><a href="index.html">Guide</a><button class="theme-toggle" id="theme-toggle" type="button">theme</button><a href="#run-schema-json">Run files</a><a href="#fault-compatibility">Fault compatibility</a><a href="#run-progress-schema-json">Progress</a><a href="#run-result-schema-json">Results</a><a href="#journal-event-schema-json">Journal</a><a href="#phase-transition-schema-json">Adaptive phases</a><a href="#engine-event-schema-json">Engine events</a></nav>
 <h2 id="run-shape">The smallest useful run</h2>
 <p>A run declares one or more proxies and an ordered list of phases. A phase without <code>duration</code> remains active until stopped and must be last.</p>
 <pre><code>schema_version: 1

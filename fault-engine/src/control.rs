@@ -5,8 +5,13 @@ use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 
+use fault_model::ControlledPhase;
 use fault_model::FaultSpec;
 use fault_model::HumanDuration;
+use fault_model::PhaseState;
+use fault_model::PhaseTransition;
+use fault_model::PhaseTransitionKind;
+use fault_model::PhaseTransitionReason;
 use fault_model::ProxyFaults;
 use tokio::sync::Mutex;
 use tokio::sync::OwnedMutexGuard;
@@ -23,83 +28,6 @@ pub struct ControlSession {
     runtimes: BTreeMap<String, FaultRuntime>,
     previous: Option<BTreeMap<String, Vec<FaultSpec>>>,
     _guard: OwnedMutexGuard<()>,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum PhaseState {
-    Pending,
-    Running,
-    Stopped,
-    Deleted,
-}
-
-impl PhaseState {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Pending => "pending",
-            Self::Running => "running",
-            Self::Stopped => "stopped",
-            Self::Deleted => "deleted",
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct ControlledPhase {
-    pub id: uuid::Uuid,
-    pub name: String,
-    pub faults: Vec<ProxyFaults>,
-    pub duration: Option<HumanDuration>,
-    pub state: PhaseState,
-    pub planned_start_at: Option<chrono::DateTime<chrono::Utc>>,
-    pub started_at: Option<chrono::DateTime<chrono::Utc>>,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum PhaseTransitionKind {
-    Added,
-    Modified,
-    Deleted,
-    Started,
-    Stopped,
-}
-
-impl PhaseTransitionKind {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Added => "added",
-            Self::Modified => "modified",
-            Self::Deleted => "deleted",
-            Self::Started => "started",
-            Self::Stopped => "stopped",
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum PhaseTransitionReason {
-    Explicit,
-    Automatic,
-    DurationElapsed,
-    Superseded,
-}
-
-impl PhaseTransitionReason {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Explicit => "explicit",
-            Self::Automatic => "automatic",
-            Self::DurationElapsed => "duration-elapsed",
-            Self::Superseded => "superseded",
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct PhaseTransition {
-    pub phase: ControlledPhase,
-    pub kind: PhaseTransitionKind,
-    pub reason: Option<PhaseTransitionReason>,
 }
 
 pub struct PhaseSchedule {

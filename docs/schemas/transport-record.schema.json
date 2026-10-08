@@ -1,0 +1,289 @@
+{
+  "$defs": {
+    "DelayRecord": {
+      "properties": {
+        "applications": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "total_delay_ms": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "applications",
+        "total_delay_ms"
+      ],
+      "type": "object"
+    },
+    "FaultRecord": {
+      "properties": {
+        "bandwidth_bytes_limited": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "blackhole_activations": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "connection_resets": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "dns_interventions": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "jitter": {
+          "$ref": "#/$defs/DelayRecord"
+        },
+        "latency": {
+          "$ref": "#/$defs/DelayRecord"
+        }
+      },
+      "required": [
+        "latency",
+        "jitter",
+        "bandwidth_bytes_limited",
+        "blackhole_activations",
+        "connection_resets",
+        "dns_interventions"
+      ],
+      "type": "object"
+    },
+    "TcpStreamOutcome": {
+      "enum": [
+        "active",
+        "completed",
+        "upstream-connect-failed",
+        "transfer-failed",
+        "cancelled",
+        "fault-reset"
+      ],
+      "type": "string"
+    },
+    "TcpStreamRecord": {
+      "properties": {
+        "bytes_to_client": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "bytes_to_upstream": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "closed_at": {
+          "format": "date-time",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "failure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TransportFailure"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "faults": {
+          "$ref": "#/$defs/FaultRecord"
+        },
+        "opened_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "outcome": {
+          "$ref": "#/$defs/TcpStreamOutcome"
+        },
+        "peer": {
+          "type": "string"
+        },
+        "proxy": {
+          "type": "string"
+        },
+        "stream_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "upstream": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "stream_id",
+        "proxy",
+        "peer",
+        "upstream",
+        "opened_at",
+        "bytes_to_upstream",
+        "bytes_to_client",
+        "faults",
+        "outcome"
+      ],
+      "type": "object"
+    },
+    "TransportFailure": {
+      "properties": {
+        "category": {
+          "$ref": "#/$defs/TransportFailureCategory"
+        },
+        "message": {
+          "type": "string"
+        },
+        "stage": {
+          "$ref": "#/$defs/TransportFailureStage"
+        }
+      },
+      "required": [
+        "stage",
+        "category",
+        "message"
+      ],
+      "type": "object"
+    },
+    "TransportFailureCategory": {
+      "enum": [
+        "dns-failed",
+        "connection-refused",
+        "timed-out",
+        "network-unreachable",
+        "connection-reset",
+        "broken-pipe",
+        "other"
+      ],
+      "type": "string"
+    },
+    "TransportFailureStage": {
+      "enum": [
+        "connect",
+        "transfer",
+        "exchange"
+      ],
+      "type": "string"
+    },
+    "UdpExchangeOutcome": {
+      "enum": [
+        "active",
+        "completed",
+        "transfer-failed",
+        "cancelled",
+        "fault-dropped"
+      ],
+      "type": "string"
+    },
+    "UdpExchangeRecord": {
+      "properties": {
+        "completed_at": {
+          "format": "date-time",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "exchange_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "failure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TransportFailure"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "faults": {
+          "$ref": "#/$defs/FaultRecord"
+        },
+        "outcome": {
+          "$ref": "#/$defs/UdpExchangeOutcome"
+        },
+        "peer": {
+          "type": "string"
+        },
+        "proxy": {
+          "type": "string"
+        },
+        "request_bytes": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "response_bytes": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "started_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "upstream": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "exchange_id",
+        "proxy",
+        "peer",
+        "upstream",
+        "started_at",
+        "request_bytes",
+        "response_bytes",
+        "faults",
+        "outcome"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "properties": {
+        "stream": {
+          "$ref": "#/$defs/TcpStreamRecord"
+        },
+        "type": {
+          "const": "tcp-stream",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "stream"
+      ],
+      "type": "object"
+    },
+    {
+      "properties": {
+        "exchange": {
+          "$ref": "#/$defs/UdpExchangeRecord"
+        },
+        "type": {
+          "const": "udp-exchange",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "exchange"
+      ],
+      "type": "object"
+    }
+  ],
+  "title": "TransportRecord"
+}

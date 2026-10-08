@@ -36,6 +36,11 @@ jobs:
             echo "Tag $GITHUB_REF_NAME does not match package version $version" >&2
             exit 1
           fi
+          npm_version=$(jq -r .version fault-typescript/package.json)
+          if [[ "$npm_version" != "$version" ]]; then
+            echo "fault-typescript/package.json version $npm_version does not match $version" >&2
+            exit 1
+          fi
 
   binaries:
     needs: metadata
@@ -124,11 +129,66 @@ jobs:
           path: dist/*.tar.gz
           if-no-files-found: error
 
+  typescript-bindings:
+    needs: metadata
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            # Link against glibc 2.17 so the addon loads on older distributions.
+            flags: --use-napi-cross
+          - os: macos-15
+            target: aarch64-apple-darwin
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: fault-typescript
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: typescript-${{ matrix.target }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: fault-typescript/package-lock.json
+      - run: npm ci
+      - run: >-
+          npx napi build --platform --release --esm
+          --js native.js --dts native.d.ts
+          --target ${{ matrix.target }} ${{ matrix.flags }}
+      - run: npm run build:ts
+      - run: npm test
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fault-typescript-${{ matrix.target }}
+          path: fault-typescript/faultlib.*.node
+          if-no-files-found: error
+      - name: Upload the generated loader
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        uses: actions/upload-artifact@v4
+        with:
+          name: fault-typescript-loader
+          path: |
+            fault-typescript/native.js
+            fault-typescript/native.d.ts
+          if-no-files-found: error
+
   crates:
     if: >-
       startsWith(github.ref, 'refs/tags/') ||
       inputs.publish-crates
-    needs: [metadata, binaries, python-wheels, python-sdist]
+    needs: [metadata, binaries, python-wheels, python-sdist, typescript-bindings]
     runs-on: ubuntu-24.04
     environment: crates-io
     permissions:
@@ -191,14 +251,75 @@ jobs:
       - name: Publish Python distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
 
+  npm:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [metadata, typescript-bindings]
+    runs-on: ubuntu-24.04
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/faultlib
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: fault-typescript
+    # Trusted publishing: npm authenticates this job through GitHub OIDC
+    # (id-token: write), so no npm token is stored. Each package names
+    # fault-project/fault, release.yaml, and the npm environment as its
+    # trusted publisher with stage-only permissions, and provenance is
+    # attached automatically. Nothing becomes installable until a maintainer
+    # approves every staged package with 2FA on npmjs.com or `npm stage`.
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: npm
+          cache-dependency-path: fault-typescript/package-lock.json
+      - name: Use an npm CLI that supports staged trusted publishing
+        run: npm install --global npm@^11.21.0
+      - run: npm ci
+      - uses: actions/download-artifact@v6
+        with:
+          pattern: fault-typescript-*-*
+          path: fault-typescript/artifacts
+      - uses: actions/download-artifact@v6
+        with:
+          name: fault-typescript-loader
+          path: fault-typescript
+      - run: npx napi create-npm-dirs
+      - run: npx napi artifacts --output-dir artifacts --npm-dir npm
+      - name: Verify every platform package has its addon
+        run: |
+          for target in linux-x64-gnu darwin-arm64 darwin-x64 win32-x64-msvc; do
+            test -f "npm/$target/faultlib.$target.node" \
+              || { echo "missing addon for $target" >&2; exit 1; }
+          done
+      - run: npm run build:ts
+      - name: Pin the platform packages as optional dependencies
+        run: >-
+          npx napi prepublish -t npm
+          --no-gh-release --skip-optional-publish
+      - name: Stage the platform packages
+        run: |
+          for target in linux-x64-gnu darwin-arm64 darwin-x64 win32-x64-msvc; do
+            (cd "npm/$target" && npm stage publish)
+          done
+      - name: Stage faultlib
+        run: npm stage publish --ignore-scripts
+
   github-release:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [metadata, binaries, python-wheels, python-sdist, crates, pypi]
+    needs: [metadata, binaries, python-wheels, python-sdist, crates, pypi, npm]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/download-artifact@v5
         with:
           path: artifacts
+      - name: Drop the npm loader, which only ships inside the npm package
+        run: rm -rf artifacts/fault-typescript-loader
       - name: Write SHA-256 checksums
         working-directory: artifacts
         run: |

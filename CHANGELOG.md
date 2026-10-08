@@ -4,6 +4,23 @@
 
 ### Added
 
+- A TypeScript binding, published to npm as `faultlib`, runs the engine in
+  Node.js 24+, Bun, and Deno through a napi-rs addon (`fault-typescript`).
+  It mirrors the Python API with `await using` cleanup, async iterators over
+  events, records, progress, and phase transitions, and `FaultError`,
+  `InvalidInputError`, and `PhaseStateError`. Its types are generated from the
+  JSON Schemas. Prebuilt addons cover Linux x64, macOS arm64 and x64, and
+  Windows x64.
+- `fault-binding`, an unpublished crate, holds the engine handle both
+  bindings share: lifecycle, schedule ownership, argument validation,
+  defaults, and periodic status events now live in Rust rather than Python.
+- `fault-model` exposes `ControlledPhase`, `PhaseState`, `PhaseTransition`,
+  `PhaseTransitionKind`, `PhaseTransitionReason`, `BoundEndpoints`, and
+  `EngineEvent` as serializable contracts. `fault-engine` re-exports them in
+  place of its own definitions. New JSON Schemas cover endpoints, engine
+  events, phases, phase transitions, transport records, status, and
+  summaries.
+
 - `TransportStatus.effects` reports `bandwidth_bytes_limited`,
   `blackhole_activations`, `connection_resets`, and `dns_interventions`
   alongside the latency and jitter counters. They are cumulative run-wide
@@ -12,6 +29,15 @@
   update live when a fault takes effect, so `run-progress` on stdout proves
   every fault type fired without a journal. Each blackholed direction and each
   reset stream counts once, however many times the fault blocks it.
+
+### Changed
+
+- Python: invalid arguments raise `ValueError` consistently, including a
+  malformed phase duration or id, which previously raised `RuntimeError`.
+  `Engine.next_event()` defaults `status_interval` to Rust's two seconds and
+  rejects non-finite values. `Schedule.alive()` reflects whether the engine
+  still has an active schedule, and leaving a schedule after shutdown no
+  longer fails.
 
 ## 1.1.0 - 2026-10-06
 

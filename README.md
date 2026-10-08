@@ -92,6 +92,21 @@ drops records when its consumer falls behind and reports the loss through
 See [`fault-python/README.md`](fault-python/README.md) for the API boundary and
 development workflow.
 
+## TypeScript
+
+The `faultlib` npm package runs the same engine in Node.js 24+, Bun, and Deno
+through a Node-API addon. Its types are generated from the JSON Schemas. Build
+the local package and run the adaptive example with:
+
+```console
+npm --prefix fault-typescript ci
+npm --prefix fault-typescript run build
+node examples/typescript_proxy.mts
+```
+
+See [`fault-typescript/README.md`](fault-typescript/README.md) for the API and development
+workflow.
+
 ## Rust
 
 Rust applications embed the same engine used by the CLI:
@@ -110,7 +125,9 @@ example.
 - [`fault-model`](fault-model/README.md): versioned contracts and schemas
 - [`fault-engine`](fault-engine/README.md): asynchronous proxy and scheduler
 - [`fault-cli`](fault-cli/README.md): command and presentation adapter
-- [`faultlib`](fault-python/README.md): PyO3 bindings and Python ergonomics
+- [`fault-binding`](fault-binding/README.md): engine handle shared by the language bindings
+- [`faultlib` for Python](fault-python/README.md): PyO3 bindings and Python ergonomics
+- [`faultlib` for TypeScript](fault-typescript/README.md): napi-rs bindings for Node.js, Bun, and Deno
 - [`docs/schemas/run.schema.json`](docs/schemas/run.schema.json): canonical Run contract
 
 ## Development

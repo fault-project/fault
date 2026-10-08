@@ -1,7 +1,7 @@
 [workspace]
 resolver = "3"
-members = ["fault-cli", "fault-engine", "fault-model", "fault-python"]
-default-members = ["fault-cli", "fault-engine", "fault-model", "fault-python"]
+members = ["fault-binding", "fault-cli", "fault-engine", "fault-model", "fault-python", "fault-typescript"]
+default-members = ["fault-binding", "fault-cli", "fault-engine", "fault-model", "fault-python", "fault-typescript"]
 
 [workspace.package]
 version = "1.1.0"

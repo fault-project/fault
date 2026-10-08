@@ -1,0 +1,60 @@
+{
+  "name": "faultlib",
+  "version": "1.1.0",
+  "description": "Programmable network fault injection",
+  "keywords": ["fault-injection", "chaos-engineering", "network", "proxy", "testing"],
+  "homepage": "https://fault-project.com",
+  "bugs": "https://github.com/fault-project/fault/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fault-project/fault.git",
+    "directory": "fault-typescript"
+  },
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "native.js", "native.d.ts"],
+  "engines": {
+    "node": ">=24"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "napi": {
+    "binaryName": "faultlib",
+    "packageName": "@faultlib/native",
+    "targets": [
+      "x86_64-unknown-linux-gnu",
+      "aarch64-apple-darwin",
+      "x86_64-apple-darwin",
+      "x86_64-pc-windows-msvc"
+    ]
+  },
+  "scripts": {
+    "build": "npm run build:native && npm run build:ts",
+    "build:debug": "npm run build:native:debug && npm run build:ts",
+    "build:native": "napi build --platform --release --esm --js native.js --dts native.d.ts",
+    "build:native:debug": "napi build --platform --esm --js native.js --dts native.d.ts",
+    "build:ts": "tsc -p tsconfig.json",
+    "check:examples": "tsc -p tsconfig.examples.json",
+    "generate:types": "node scripts/generate-types.mjs",
+    "check:types": "node scripts/generate-types.mjs --check",
+    "test": "node --test \"test/**/*.test.mjs\"",
+    "test:bun": "bun test ./test/engine.test.mjs",
+    "test:deno": "deno test --allow-env --allow-ffi --allow-net --allow-read --allow-sys test/engine.test.mjs"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^3.10.8",
+    "@types/node": "^24.19.1",
+    "json-schema-to-typescript": "^16.0.0",
+    "typescript": "^7.0.2"
+  }
+}

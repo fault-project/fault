@@ -1,0 +1,246 @@
+{
+  "$defs": {
+    "FaultStatus": {
+      "properties": {
+        "average_jitter_ms": {
+          "format": "double",
+          "type": "number"
+        },
+        "average_latency_ms": {
+          "format": "double",
+          "type": "number"
+        },
+        "bandwidth_bytes_limited": {
+          "default": 0,
+          "description": "Bytes paced by bandwidth faults, summed over every stream and\nexchange.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "blackhole_activations": {
+          "default": 0,
+          "description": "Traffic directions blackholed, summed over every stream and exchange.\nEach direction of a stream or exchange counts at most once.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "connection_resets": {
+          "default": 0,
+          "description": "Streams reset by a connection-reset fault.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "dns_interventions": {
+          "default": 0,
+          "description": "DNS queries altered by a DNS fault.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "jitter_applications": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "latency_applications": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "latency_applications",
+        "average_latency_ms",
+        "jitter_applications",
+        "average_jitter_ms"
+      ],
+      "type": "object"
+    },
+    "TcpStreamStatus": {
+      "properties": {
+        "active": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "active_impacted": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "average_bytes_to_client": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "average_bytes_to_upstream": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "completed": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "failed": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "impacted": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "opened": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "active",
+        "opened",
+        "active_impacted",
+        "impacted",
+        "completed",
+        "failed",
+        "average_bytes_to_upstream",
+        "average_bytes_to_client"
+      ],
+      "type": "object"
+    },
+    "TransportFailure": {
+      "properties": {
+        "category": {
+          "$ref": "#/$defs/TransportFailureCategory"
+        },
+        "message": {
+          "type": "string"
+        },
+        "stage": {
+          "$ref": "#/$defs/TransportFailureStage"
+        }
+      },
+      "required": [
+        "stage",
+        "category",
+        "message"
+      ],
+      "type": "object"
+    },
+    "TransportFailureCategory": {
+      "enum": [
+        "dns-failed",
+        "connection-refused",
+        "timed-out",
+        "network-unreachable",
+        "connection-reset",
+        "broken-pipe",
+        "other"
+      ],
+      "type": "string"
+    },
+    "TransportFailureStage": {
+      "enum": [
+        "connect",
+        "transfer",
+        "exchange"
+      ],
+      "type": "string"
+    },
+    "UdpExchangeStatus": {
+      "properties": {
+        "active": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "active_impacted": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "average_request_bytes": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "average_response_bytes": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "completed": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "failed": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "impacted": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "started": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "active",
+        "started",
+        "active_impacted",
+        "impacted",
+        "completed",
+        "failed",
+        "average_request_bytes",
+        "average_response_bytes"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "dropped_records": {
+      "description": "Completed records omitted from the best-effort event stream.",
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "effects": {
+      "$ref": "#/$defs/FaultStatus"
+    },
+    "last_failure": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TransportFailure"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "tcp": {
+      "$ref": "#/$defs/TcpStreamStatus"
+    },
+    "udp": {
+      "$ref": "#/$defs/UdpExchangeStatus"
+    }
+  },
+  "required": [
+    "tcp",
+    "udp",
+    "effects",
+    "dropped_records"
+  ],
+  "title": "TransportStatus",
+  "type": "object"
+}

@@ -11,7 +11,8 @@ recovery. For shell-driven experiments, use the
 [`fault` CLI](https://crates.io/crates/fault-cli).
 
 Python is a thin binding: validation, phase lifecycle, scheduling decisions,
-events, and errors remain canonical Rust behavior. The package adds typed
+events, defaults, and errors remain canonical Rust behavior, shared with the
+TypeScript package through the `fault-binding` crate. The package adds typed
 Python mappings and dataclasses, not a second fault model.
 
 ## Requirements and installation
@@ -88,7 +89,8 @@ than unstructured dictionaries.
 ## Observe traffic
 
 `Engine.next_event()` returns a completed transport record when one is
-available and otherwise publishes periodic status:
+available, a status event when none completes within `status_interval`
+seconds (two by default), and `None` once the engine stops:
 
 ```python
 from faultlib import StatusEvent, TcpStreamEvent, UdpExchangeEvent
@@ -119,7 +121,8 @@ records through `dropped_records`.
 `engine.schedule()` exposes Rust-owned phase controls to Python. You can add,
 modify, delete, start, or stop future phases while ordinary Python tasks
 coordinate the surrounding system. A phase becomes immutable once it starts;
-invalid mutations raise `PhaseStateError`.
+invalid mutations raise `PhaseStateError`. Invalid arguments, such as a
+malformed duration or phase id, or a negative position, raise `ValueError`.
 
 The complete example in the repository demonstrates engine events, adaptive
 scheduling, and bounded record retention:

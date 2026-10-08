@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Socket addresses actually bound by a started engine, in configuration\norder.",
+  "properties": {
+    "tcp": {
+      "description": "Bound address of every TCP proxy.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "udp": {
+      "description": "Bound address of every UDP proxy.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "tcp",
+    "udp"
+  ],
+  "title": "BoundEndpoints",
+  "type": "object"
+}

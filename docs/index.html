@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="fault — focused TCP, UDP, and DNS fault injection for the command line, Rust, and Python.">
+  <meta name="description" content="fault — focused TCP, UDP, and DNS fault injection for the command line, Rust, Python, and TypeScript.">
   <title>fault — network fault injection</title>
   <script>
     (() => {
@@ -807,9 +807,9 @@ args: [<span class="value">"run"</span>, <span class="value">"/config/run.json"<
       </section>
 
       <section id="implementations">
-        <div class="label">Rust and Python</div>
+        <div class="label">Rust, Python, and TypeScript</div>
         <h2>Drive fault from your own code</h2>
-        <p>The same engine is available directly from Rust and through a thin PyO3 binding. Rust always owns lifecycle, fault semantics, schedules, events, validation, and errors.</p>
+        <p>The same engine is available directly from Rust and through thin Python (PyO3) and TypeScript (napi-rs) bindings. Rust always owns lifecycle, fault semantics, schedules, events, validation, and errors.</p>
 
         <h3>Start the engine from Rust</h3>
         <pre data-language="rust"><code>use fault_engine::FaultEngine;
@@ -923,6 +923,39 @@ async def observe(engine: Engine) -&gt; None:
     while transition := await schedule.next_transition():
         print(transition.phase.name, transition.phase.state)</code></pre>
         <p>This is deliberately ordinary Python. It can sit beside Kubernetes clients, test runners, cloud SDKs, or application-specific checks while the network hot path remains entirely in Rust.</p>
+
+        <h3>Start the engine from TypeScript</h3>
+        <p>The <code>faultlib</code> npm package runs on Node.js 24+, Bun, and Deno. Its types are generated from the JSON Schemas, so runs, faults, and records are checked by the compiler.</p>
+        <pre data-language="typescript"><code>import { Engine, type Run } from <span class="value">"faultlib"</span>;
+
+const run: Run = {
+  schema_version: 1,
+  name: <span class="value">"slow API"</span>,
+  proxies: [{
+    name: <span class="value">"api"</span>,
+    protocol: <span class="value">"tcp"</span>,
+    listen: <span class="value">"127.0.0.1:18080"</span>,
+    upstream: <span class="value">"api.internal:443"</span>,
+  }],
+  phases: [{ name: <span class="value">"controlled from TypeScript"</span>, proxies: [] }],
+};
+
+await using engine = await Engine.start(run);
+await using schedule = await engine.beginSchedule();
+const phase = await schedule.addPhase(
+  <span class="value">"api latency"</span>,
+  [{ proxy: <span class="value">"api"</span>, faults: [{
+    type: <span class="value">"latency"</span>,
+    flow: <span class="value">"both"</span>,
+    distribution: { type: <span class="value">"uniform"</span>, min_ms: 100, max_ms: 250 },
+  }] }],
+  { duration: <span class="value">"30s"</span> },
+);
+await schedule.startPhase(phase);
+
+for await (const event of engine.events()) {
+  if (event.type === <span class="value">"tcp-stream"</span>) console.log(event.stream.outcome);
+}</code></pre>
       </section>
 
       <section id="evidence">
@@ -939,7 +972,7 @@ async def observe(engine: Engine) -&gt; None:
         </ul>
         <pre data-language="shell"><code><span class="command">fault run proxy.json --journal run.ndjson</span>
 <span class="command">fault --output json run scheduled-run.json --journal run.ndjson</span></code></pre>
-        <div class="callout"><p>Evidence delivery is bounded and best effort. A slow journal or Python consumer never stalls traffic. Aggregate status remains complete, while <code>dropped_records</code> tells you that individual records were missed.</p></div>
+        <div class="callout"><p>Evidence delivery is bounded and best effort. A slow journal, Python, or TypeScript consumer never stalls traffic. Aggregate status remains complete, while <code>dropped_records</code> tells you that individual records were missed.</p></div>
       </section>
 
       <section id="examples">
@@ -1208,9 +1241,10 @@ async with httpx.AsyncClient() as client:
             <tr><td><a href="schemas/journal-event.schema.json">journal-event.schema.json</a></td><td>NDJSON journal events.</td></tr>
           </tbody>
         </table>
-        <p>Build from source with current stable Rust. The Python binding requires Python 3.14 or newer.</p>
+        <p>Build from source with current stable Rust. The Python binding requires Python 3.14 or newer; the TypeScript binding requires Node.js 24 or newer, Bun, or Deno.</p>
         <pre data-language="shell"><code><span class="command">cargo build --release -p fault-cli</span>
-<span class="command">uv sync --project fault-python --python 3.14 --reinstall-package faultlib</span></code></pre>
+<span class="command">uv sync --project fault-python --python 3.14 --reinstall-package faultlib</span>
+<span class="command">npm --prefix fault-typescript ci &amp;&amp; npm --prefix fault-typescript run build</span></code></pre>
       </section>
 
       <footer>
@@ -1286,6 +1320,16 @@ async with httpx.AsyncClient() as client:
         { type: "func", match: /[a-z_]\w*(?=\s*\()/gi },
         { type: "oper", match: /[-/*+<>,=!&|^%]+/g },
         { type: "class", match: /\b[A-Z][\w_]*\b/g },
+      ],
+      typescript: [
+        { match: /\/\/.*\n?|\/\*((?!\*\/)[^])*(\*\/)?/g, type: "cmnt", sub: "todo" },
+        { expand: "str" },
+        { expand: "num" },
+        { type: "kwd", match: /\b(as|async|await|break|case|catch|class|const|continue|default|else|export|extends|for|from|function|if|import|in|interface|let|new|of|return|switch|throw|try|type|using|while|yield)\b/g },
+        { type: "bool", match: /\b(true|false|null|undefined)\b/g },
+        { type: "func", match: /[a-zA-Z_$][\w$]*(?=\s*\()/g },
+        { type: "oper", match: /[-/*+<>,=!&|^%?:]+/g },
+        { type: "class", match: /\b[A-Z][\w$]*\b/g },
       ],
       rust: [
         { match: /\/\/.*\n?|\/\*((?!\*\/)[^])*(\*\/)?/g, type: "cmnt", sub: "todo" },
@@ -1396,6 +1440,7 @@ async with httpx.AsyncClient() as client:
       if (label.includes("yaml") || label.includes("yml")) return "yaml";
       if (label === "python") return "python";
       if (label === "rust") return "rust";
+      if (label === "typescript") return "typescript";
       if (label.includes("container") || label.includes("pod")) return "yaml";
       return "bash";
     }

@@ -1,6 +1,5 @@
 mod engine;
 mod error;
-mod json;
 
 use pyo3::prelude::*;
 
