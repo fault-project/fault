@@ -48,8 +48,8 @@
     "generate:types": "node scripts/generate-types.mjs",
     "check:types": "node scripts/generate-types.mjs --check",
     "test": "node --test \"test/**/*.test.mjs\"",
-    "test:bun": "bun test ./test/engine.test.mjs",
-    "test:deno": "deno test --allow-env --allow-ffi --allow-net --allow-read --allow-sys test/engine.test.mjs"
+    "test:bun": "bun test ./test/engine.test.mjs ./test/runtime.test.mjs",
+    "test:deno": "deno test --allow-env --allow-ffi --allow-net --allow-read --allow-sys test/engine.test.mjs test/runtime.test.mjs"
   },
   "devDependencies": {
     "@napi-rs/cli": "^3.10.8",

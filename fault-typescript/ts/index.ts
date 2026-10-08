@@ -7,6 +7,9 @@
  * @packageDocumentation
  */
 
+// Must stay first: it checks the Node.js version before the addon loads.
+import "./runtime.js";
+
 export { Engine } from "./engine.js";
 export type { EngineOptions, EventOptions } from "./engine.js";
 export {

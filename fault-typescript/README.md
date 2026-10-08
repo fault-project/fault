@@ -15,6 +15,9 @@ faults, records, and results have exactly the fields documented in the
 ## Requirements
 
 - Node.js 24 or newer, Bun 1.2 or newer, or Deno 2 with `--allow-ffi`.
+  Older Node.js versions fail at import with a clear error. Deno needs a
+  local `node_modules` directory to load the addon: set
+  `"nodeModulesDir": "auto"` in `deno.json`.
 - Prebuilt addons for Linux x64 (glibc 2.17+), macOS arm64 and x64, and
   Windows x64. They install automatically as the optional
   `@faultlib/native-*` dependency for your platform.

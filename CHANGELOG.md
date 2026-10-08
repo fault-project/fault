@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- TypeScript: installing `faultlib` on Node.js older than 24 now fails at
+  import with "faultlib requires Node.js 24 or newer" instead of an opaque
+  missing native binding error. The `@faultlib/native-*` platform packages no
+  longer declare `engines`, which made npm silently skip them.
+
 ## 1.2.0 - 2026-10-08
 
 ### Added
