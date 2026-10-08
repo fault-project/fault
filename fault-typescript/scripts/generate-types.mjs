@@ -69,7 +69,11 @@ const generated = (
 ).replace(new RegExp(`export interface ${root} \\{[\\s\\S]*?\\n\\}\\n\\n?`), "");
 
 if (process.argv.includes("--check")) {
-  const committed = await readFile(output, "utf8").catch(() => "");
+  // Git may check the file out with CRLF line endings on Windows.
+  const committed = (await readFile(output, "utf8").catch(() => "")).replace(
+    /\r\n/g,
+    "\n",
+  );
   if (committed !== generated) {
     console.error("ts/types.ts is stale; run `npm run generate:types`");
     process.exit(1);
